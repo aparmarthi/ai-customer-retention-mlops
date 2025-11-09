@@ -1,0 +1,13 @@
+pandas>=2.2
+pyarrow>=16.0
+numpy>=1.26
+scikit-learn>=1.4
+xgboost>=2.0
+lightgbm>=4.3
+mlflow>=2.14
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-dotenv>=1.0
+streamlit>=1.37
+tqdm>=4.66
+fsspec>=2024.6.1
