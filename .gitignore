@@ -13,9 +13,7 @@ __pycache__/
 env/
 venv/
 
-# Data & artifacts
-data/raw/*
-data/processed/*
+# Data & artifacts (default ignore big stuff)
 mlruns/
 models/
 *.parquet
@@ -23,6 +21,18 @@ models/
 *.7z
 *.zip
 *.csv
+
+# Ignore big/raw data folders (keep local)
+data/raw/
+data/processed/
+data/**/raw/
+data/**/processed/
+
+# Allow small samples + docs to be committed
+!data/**/sample/
+!data/**/sample/**
+!data/**/README.md
+!data/**/.gitkeep
 
 # Jupyter
 .ipynb_checkpoints/
