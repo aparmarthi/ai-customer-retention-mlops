@@ -1,0 +1,18 @@
+{
+  // Workspace overrides for VS Code theming. This forces comment backgrounds
+  // to be fully transparent which removes any theme-applied block highlighting
+  // for comment tokens.
+  "editor.tokenColorCustomizations": {
+    "textMateRules": [
+      {
+        "scope": [
+          "comment",
+          "punctuation.definition.comment"
+        ],
+        "settings": {
+          "background": "#00000000"
+        }
+      }
+    ]
+  }
+}
