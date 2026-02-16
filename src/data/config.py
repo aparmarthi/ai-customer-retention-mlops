@@ -6,16 +6,19 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class Paths:
-    # Project root (…/ai-customer-retention-mlops/)
-    ROOT: Path = Path(__file__).resolve().parents[1]
+    # Project root: …/AI-CUSTOMER-RETENTION-MLOPS/
+    ROOT: Path = Path(__file__).resolve().parents[2]
 
-    # Data dirs
+    # Dataset root
     DATA_DIR: Path = ROOT / "data"
-    RAW_DIR: Path = DATA_DIR / "raw"
-    PARQUET_DIR: Path = DATA_DIR / "parquet"
-    PROCESSED_DIR: Path = DATA_DIR / "processed"
+    KKBOX_DIR: Path = DATA_DIR / "kkbox"
 
-    # Raw inputs (adjust filenames if yours differ)
+    # Data layers
+    RAW_DIR: Path = KKBOX_DIR / "raw"
+    PARQUET_DIR: Path = KKBOX_DIR / "parquet"
+    PROCESSED_DIR: Path = KKBOX_DIR / "processed"
+
+    # Raw inputs (KKBox)
     TRAIN_CSV: Path = RAW_DIR / "train.csv"
     MEMBERS_CSV: Path = RAW_DIR / "members_v3.csv"
     TRANSACTIONS_CSV: Path = RAW_DIR / "transactions.csv"
@@ -26,7 +29,7 @@ class Paths:
     TRANSACTIONS_PARQUET: Path = PARQUET_DIR / "transactions.parquet"
     USER_LOGS_PARQUET: Path = PARQUET_DIR / "user_logs.parquet"
 
-    # Processed outputs
+    # Processed / feature outputs
     SPINE_PARQUET: Path = PROCESSED_DIR / "spine.parquet"
     TXN_FEATURES_PARQUET: Path = PROCESSED_DIR / "txn_features.parquet"
     LOG_FEATURES_PARQUET: Path = PROCESSED_DIR / "log_features.parquet"
@@ -34,10 +37,10 @@ class Paths:
 
 @dataclass(frozen=True)
 class Settings:
-    # DuckDB temp directory (optional; DuckDB will choose defaults if None)
+    # DuckDB
     DUCKDB_TEMP_DIR: str | None = None
 
-    # General
+    # Reproducibility
     RANDOM_SEED: int = 42
 
     # Members cleaning
