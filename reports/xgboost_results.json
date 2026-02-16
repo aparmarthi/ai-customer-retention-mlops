@@ -1,0 +1,39 @@
+{
+  "model": "xgboost_train_api",
+  "run_ts": "2026-01-30T22:48:43",
+  "n_rows": 992931,
+  "n_features_after_preprocess": 42,
+  "threshold": 0.5,
+  "scale_pos_weight": 14.643775725229927,
+  "best_iteration": 761,
+  "accuracy": 0.9526857246446142,
+  "precision": 0.5799709020368574,
+  "recall": 0.9420986292736726,
+  "f1": 0.717956414720538,
+  "roc_auc": 0.9874987633202672,
+  "pr_auc": 0.877100255208389,
+  "confusion_matrix": [
+    [
+      177232,
+      8661
+    ],
+    [
+      735,
+      11959
+    ]
+  ],
+  "params": {
+    "objective": "binary:logistic",
+    "eval_metric": "aucpr",
+    "eta": 0.05,
+    "max_depth": 6,
+    "min_child_weight": 1,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "lambda": 1.0,
+    "alpha": 0.0,
+    "scale_pos_weight": 14.643775725229927,
+    "tree_method": "hist",
+    "seed": 42
+  }
+}

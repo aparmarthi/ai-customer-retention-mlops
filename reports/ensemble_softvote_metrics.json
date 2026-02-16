@@ -1,0 +1,31 @@
+{
+  "threshold": 0.5,
+  "roc_auc": 0.9894303786850838,
+  "pr_auc": 0.8886766240521978,
+  "accuracy": 0.9674852835281262,
+  "precision": 0.6805418861807445,
+  "recall": 0.9260280447455491,
+  "f1": 0.7845296492808757,
+  "confusion_matrix": [
+    [
+      180375,
+      5518
+    ],
+    [
+      939,
+      11755
+    ]
+  ],
+  "models": [
+    "lightgbm"
+  ],
+  "weights": {
+    "lightgbm": 1.0
+  },
+  "per_model_pr_auc": {
+    "lightgbm": 0.8886766240521978
+  },
+  "per_model_roc_auc": {
+    "lightgbm": 0.9894303786850838
+  }
+}

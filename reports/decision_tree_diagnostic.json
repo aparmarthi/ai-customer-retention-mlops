@@ -1,0 +1,84 @@
+{
+  "model": "decision_tree",
+  "run_ts": "2026-01-30T22:44:41",
+  "n_rows": 992931,
+  "n_features_raw": 40,
+  "n_numeric": 39,
+  "n_categorical": 1,
+  "n_datetime_converted": 1,
+  "datetime_cols": [
+    "registration_init_time_dt"
+  ],
+  "churn_rate_overall": 0.06392287077349786,
+  "churn_rate_train": 0.06392318693160645,
+  "churn_rate_valid": 0.0639216061474316,
+  "params": {
+    "max_depth": 5,
+    "min_samples_leaf": 500,
+    "min_samples_split": 2000,
+    "random_state": 42,
+    "class_weight": "balanced"
+  },
+  "accuracy": 0.88533489100495,
+  "precision": 0.3507332247074508,
+  "recall": 0.9326453442571293,
+  "f1": 0.5097633964132705,
+  "roc_auc": 0.9656558448477527,
+  "pr_auc": 0.7516762926557512,
+  "confusion_matrix": [
+    [
+      163977,
+      21916
+    ],
+    [
+      855,
+      11839
+    ]
+  ],
+  "top_features": [
+    {
+      "feature": "num__membership_expire_date_max",
+      "importance": 0.6823040173714966
+    },
+    {
+      "feature": "num__txn_last_date",
+      "importance": 0.1119875709805518
+    },
+    {
+      "feature": "num__cancel_rate",
+      "importance": 0.07714929445135356
+    },
+    {
+      "feature": "num__auto_renew_rate",
+      "importance": 0.07453229658755071
+    },
+    {
+      "feature": "num__log_last_date",
+      "importance": 0.03761657415320284
+    },
+    {
+      "feature": "num__actual_paid_max",
+      "importance": 0.004992839735554839
+    },
+    {
+      "feature": "num__plan_list_price_max",
+      "importance": 0.004719661779943565
+    },
+    {
+      "feature": "num__txn_tenure_days_approx",
+      "importance": 0.003265903418213701
+    },
+    {
+      "feature": "num__actual_paid_mean",
+      "importance": 0.0029106837699098428
+    },
+    {
+      "feature": "num__plan_list_price_mean",
+      "importance": 0.0004110683621882614
+    },
+    {
+      "feature": "num__txn_cnt",
+      "importance": 0.00011008939003447856
+    }
+  ]
+}
