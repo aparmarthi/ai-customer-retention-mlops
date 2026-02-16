@@ -1,13 +1,52 @@
-pandas>=2.2
-pyarrow>=16.0
-numpy>=1.26
-scikit-learn>=1.4
-xgboost>=2.0
-lightgbm>=4.3
-mlflow>=2.14
-fastapi>=0.115
-uvicorn[standard]>=0.30
-python-dotenv>=1.0
-streamlit>=1.37
-tqdm>=4.66
-fsspec>=2024.6.1
+# ----------------------------
+# Core data + compute
+# ----------------------------
+numpy>=1.26,<3.0
+pandas>=2.2,<2.4
+scipy>=1.11,<2.0
+pyarrow>=16,<19
+
+# ----------------------------
+# ML fundamentals
+# ----------------------------
+scikit-learn>=1.4,<1.6
+joblib>=1.3,<2.0
+
+# ----------------------------
+# Gradient boosting
+# ----------------------------
+xgboost>=2.0,<3.0
+lightgbm>=4.3,<5.0
+catboost>=1.2.8,<2.0
+
+# ----------------------------
+# Deep learning (TabNet / FT-Transformer / NODE)
+# ----------------------------
+torch>=2.2,<3.0
+pytorch-tabnet>=4.1,<5.0
+
+# ----------------------------
+# Experiment tracking (optional but included)
+# ----------------------------
+mlflow>=2.14,<3.0
+
+# ----------------------------
+# Serving / UI
+# ----------------------------
+fastapi>=0.115,<0.116
+uvicorn[standard]>=0.30,<0.31
+python-dotenv>=1.0,<2.0
+streamlit>=1.37,<2.0
+
+# ----------------------------
+# Utilities / IO
+# ----------------------------
+tqdm>=4.66,<5.0
+fsspec>=2024.6.1,<2026.0
+
+# ----------------------------
+# Visualization / explainability
+# ----------------------------
+matplotlib>=3.8,<4.0
+seaborn>=0.13,<0.14
+shap>=0.45,<0.47

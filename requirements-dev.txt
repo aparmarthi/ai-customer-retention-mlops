@@ -1,0 +1,13 @@
+# Experiment tracking (optional)
+mlflow>=2.14,<3.0
+
+# FastAPI serving (optional)
+fastapi>=0.115,<0.116
+uvicorn[standard]>=0.30,<0.31
+python-dotenv>=1.0,<2.0
+
+# Streamlit (optional)
+streamlit>=1.37,<2.0
+
+# Optional: explainability (install only if you use it)
+shap>=0.45,<0.47

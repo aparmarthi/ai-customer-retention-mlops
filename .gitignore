@@ -1,50 +1,150 @@
-# Python
+########################################
+# Python runtime / bytecode (REQUIRED)
+########################################
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
 *.so
+*.pyd
+
+########################################
+# Virtual environments (REQUIRED)
+########################################
+.venv/
+.venv312/
+venv/
+env/
+.conda/
+.uv/
+.python-version
+
+########################################
+# Package / build artifacts (REQUIRED)
+########################################
+build/
+dist/
 *.egg-info/
 *.egg
-*.log
+pip-wheel-metadata/
 
-# Virtual environments
-.venv/
-env/
-venv/
+########################################
+# Test / lint / type-check caches (REQUIRED)
+########################################
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.*
+htmlcov/
 
-# Data & artifacts (default ignore big stuff)
-mlruns/
-models/
-*.parquet
-*.pkl
-*.7z
-*.zip
-*.csv
-
-# Ignore big/raw data folders (keep local)
-data/raw/
-data/processed/
-data/**/raw/
-data/**/processed/
-
-# Allow small samples + docs to be committed
-!data/**/sample/
-!data/**/sample/**
-!data/**/README.md
-!data/**/.gitkeep
-
-# Jupyter
+########################################
+# Jupyter (ONLY checkpoints)
+########################################
 .ipynb_checkpoints/
+**/.ipynb_checkpoints/
 
-# Environment variables
-.env
-.env.*
-
-# OS files
+########################################
+# OS / editor noise (REQUIRED)
+########################################
 .DS_Store
 Thumbs.db
+Desktop.ini
 
-# Docker
+########################################
+# VS Code (keep settings, ignore workspace noise)
+########################################
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+########################################
+# Secrets / credentials (ABSOLUTELY REQUIRED)
+########################################
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+credentials.*
+secrets.*
+.aws/
+.gcp/
+.azure/
+
+########################################
+# Large raw datasets (INTENTIONAL)
+########################################
+# Ignore raw/processed data by default
+data/raw/**
+data/processed/**
+
+.claude/
+
+
+# Allow small samples, docs, and structure
+!data/**/.gitkeep
+!data/**/README.md
+!data/**/docs/**
+!data/**/sample/**
+
+########################################
+# Databases / local state (REQUIRED)
+########################################
+*.duckdb
+*.db
+*.sqlite
+*.sqlite3
+
+duckdb_tmp/
+**/duckdb_tmp/
+**/duckdb_temp/
+**/duckdb_spill/
+
+########################################
+# Trained model binaries (INTENTIONAL)
+########################################
+# Keep training *code*, ignore heavy artifacts
+artifacts/
+checkpoints/
+mlruns/
+wandb/
+lightning_logs/
+catboost_info/
+
+# Common serialized models
+*.pkl
+*.joblib
+*.onnx
+*.pt
+*.pth
+*.ckpt
+*.pb
+*.tflite
+*.h5
+
+########################################
+# Reports / experiment tracking (KEEP)
+########################################
+# Reports, metrics, logs are valuable → keep them
+# (Images are OK for GitHub-sized projects)
+# If plots get huge later, we can revisit
+
+########################################
+# Node / web tooling (future UI)
+########################################
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+########################################
+# Docker noise
+########################################
 *.pid
-*.log
+docker-compose.override.yml
