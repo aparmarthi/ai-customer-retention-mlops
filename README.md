@@ -1,191 +1,342 @@
+🚀 AI Customer Retention & Decision Intelligence Platform
+End-to-End ML System for Large-Scale Subscription Churn Prediction
 
-# AI Customer Retention & MLOps Platform
+Production-oriented Machine Learning system built on ~28GB of real-world subscription data (KKBox) to predict churn, optimize intervention strategy, and simulate measurable business ROI.
 
-End-to-end Machine Learning system designed to predict subscription churn at scale and simulate business ROI impact.
+This project goes beyond model accuracy and demonstrates full-stack ML system design, governance, deployment, and business alignment.
 
-Built on ~28GB of real-world subscription data, this project demonstrates scalable data engineering, applied machine learning, experiment tracking, deployment, and business-aligned decision modeling.
+🧭 Executive Overview
 
----
+This platform answers three critical questions for subscription businesses:
 
-## 🚀 Executive Summary
+Who is likely to churn?
 
-This project goes beyond model accuracy. It demonstrates:
+Which customers should we target given budget constraints?
 
-- Large-scale ETL & feature engineering
-- Imbalanced classification at production scale
-- Model governance via MLflow
-- Leaderboard-based model comparison
-- API-based inference (FastAPI)
-- Business impact modeling (ROI simulator)
-- Deployment-ready architecture
-- Clean separation of code, data, and artifacts
+What is the projected ROI of intervention?
 
-Designed to reflect real-world MLE, MLOps, and AI Product workflows.
+It integrates:
 
----
+Scalable feature engineering
 
-## 🧠 Business Problem
+Imbalanced classification at million-row scale
 
-Subscription businesses lose significant revenue due to customer churn.
+MLflow-based experiment governance
 
-This system answers:
+Leaderboard-driven model selection
 
-- Which customers are most likely to churn?
-- How confident is each prediction?
-- What threshold maximizes business ROI?
-- What is the projected revenue impact of intervention?
+Threshold + Top-K decision policy engine
 
-The project integrates predictive modeling with decision optimization.
+ROI simulation framework
 
----
+FastAPI production inference layer
 
-## 📦 Datasets
+Streamlit executive analytics dashboard
 
-### Primary Dataset
-- **KKBox Churn Prediction Dataset**
-- ~28GB subscription and user behavior logs
-- Millions of records
-- Heavy feature engineering
-- Imbalanced target (~6% churn)
+This mirrors real-world MLE + MLOps + AI Product workflows.
 
-### Secondary Datasets (Exploratory)
-- Telco Customer Churn Dataset
-- Online Retail II Dataset
+🧠 Business Context
 
-Large datasets are excluded from Git. Sample subsets are included for reproducibility.
+Subscription businesses operate under:
 
----
+Low churn base rate (~6%)
 
-## 🏗 System Architecture
+Limited retention budgets
 
-Raw Data → ETL & Aggregation → Feature Engineering → Model Training → MLflow Tracking → Leaderboard → ROI Simulation → API Service → Interactive Dashboard
+High intervention costs
 
-This mirrors real production ML pipelines.
+Need for precision targeting
 
----
+Traditional ML projects optimize ROC-AUC.
+This system optimizes business ROI.
 
-## 🔄 Data Pipeline
+We explicitly connect:
 
-Located in `src/data/`
+Model Probability → Decision Policy → Financial Impact
+📦 Dataset
+Primary Dataset
+KKBox Churn Prediction Dataset
 
-Pipeline stages:
-- Raw ingestion
-- Log aggregation
-- Feature engineering (recency, tenure, frequency, behavioral metrics)
-- Derived table creation
-- Model-ready dataset generation
-- Sample data generation for lightweight experimentation
+~28GB subscription & transaction logs
 
-Key considerations:
-- Time-aware splitting to prevent leakage
-- Reproducibility through scripted pipelines
-- Scalability for GB-scale processing
+~1M+ rows in processed model table
 
----
+Highly imbalanced (~6% churn)
 
-## 🤖 Modeling Approach
+Time-dependent behavioral signals
 
-Models implemented:
+Data Engineering Challenges Solved
 
-- Logistic Regression (baseline)
-- Random Forest
-- XGBoost
-- LightGBM (primary production candidate)
+Large-scale aggregation
 
-Evaluation metrics:
+Time-aware feature generation
 
-- ROC-AUC
-- PR-AUC (critical for imbalanced data)
-- Precision / Recall
-- F1 Score
-- Threshold-based confusion analysis
+Prevention of data leakage
 
-Imbalance handled via:
-- Scale_pos_weight
-- PR-driven threshold selection
-- Business-aligned decision thresholds
+Memory-aware processing
 
----
+Reproducible data pipeline scripts
 
-## 📊 Model Governance & Leaderboard
+Sample dataset generation for lightweight experimentation
 
-`scripts/generate_leaderboard.py`
+Large raw files excluded from Git.
+Model-ready samples included for reproducibility.
+
+🏗 End-to-End System Architecture
+Raw Logs
+   ↓
+ETL & Aggregation
+   ↓
+Feature Engineering
+   ↓
+Time-aware Train/Validation Split
+   ↓
+Model Training (LR / RF / XGB / LGBM)
+   ↓
+MLflow Experiment Tracking
+   ↓
+Leaderboard Generation
+   ↓
+Decision Policy Layer (Threshold / Top-K)
+   ↓
+ROI Simulation Engine
+   ↓
+FastAPI Inference Service
+   ↓
+Streamlit Executive Dashboard
+
+Designed to mirror production ML architecture.
+
+🔄 Data Pipeline (src/data/)
+
+Key capabilities:
+
+Raw ingestion & cleaning
+
+User-level aggregation
+
+Behavioral feature engineering
+
+Recency / tenure / frequency metrics
+
+Target generation
+
+Model table creation
+
+Time-based splitting
+
+Sample extraction for testing
+
+Leakage prevention via time-aware split.
+
+All transformations are scripted — no manual notebook dependency.
+
+🤖 Modeling
+Implemented Models
+
+Majority Class Baseline
+
+Logistic Regression
+
+Random Forest
+
+XGBoost
+
+LightGBM (Champion candidate)
+
+Observed Results (Best Model Example – XGBoost)
+
+ROC-AUC: 0.9875
+
+PR-AUC: 0.8771
+
+Recall: 0.94
+
+F1: 0.71
+
+Strong performance on imbalanced data
+
+Imbalance Strategy
+
+scale_pos_weight
+
+PR-AUC driven evaluation
+
+Threshold optimization
+
+Business-aware targeting
+
+🏆 Model Governance & Leaderboard
+
+Automated leaderboard generation via:
+
+scripts/generate_leaderboard.py
 
 Features:
-- Aggregates experiment results
-- Ranks models by selected metric
-- Outputs `leaderboard.md`
-- Documents performance trade-offs
 
-Simulates internal ML governance workflows.
+Aggregates all run logs
 
----
+Ranks models by selected metric
 
-## 💰 ROI Simulation Engine
+Exports leaderboard.md
+
+Enables transparent model comparison
+
+Documents performance trade-offs
+
+Simulates internal ML review workflow.
+
+🎯 Decision Policy Engine
+
+Located in src/serving/policy.py
+
+Supports:
+
+Threshold-based targeting
+
+Top-K targeting
+
+Rank-aware decisioning
+
+ROI-aligned probability cutoffs
+
+Fallback logic for single prediction cases
+
+Outputs structured PolicyDecision objects including:
+
+Churn probability
+
+Action (target / no_target)
+
+Policy used
+
+Threshold
+
+Rank (if applicable)
+
+Decision metadata
+
+This reflects production decision-layer design beyond raw probabilities.
+
+💰 ROI Simulation Engine
 
 Bridges ML predictions to financial outcomes.
 
 Inputs:
-- Predicted churn probabilities
-- Intervention cost assumptions
-- Retention uplift rate
+
+Predicted probabilities
+
+Cost per intervention
+
+Revenue per retained user
+
+Retention uplift rate
+
+Targeting strategy
 
 Outputs:
-- Estimated revenue saved
-- Net ROI
-- Sensitivity analysis
 
-Demonstrates alignment between ML systems and business impact.
+Revenue saved
 
----
+Intervention cost
 
-## 📈 Experiment Tracking (MLflow)
+Net ROI
 
-- Hyperparameter tracking
-- Metric logging
-- Artifact storage
-- Champion model selection
-- Reproducible runs
+Optimal threshold
 
-Reflects real-world MLOps practices.
+Sensitivity analysis
 
----
+This is the AI Product layer of the system.
 
-## 🌐 Deployment Layer
+📊 Experiment Tracking (MLflow)
 
-### FastAPI Inference Service
-- REST endpoint for predictions
-- JSON request/response
-- Production-style structure
+Tracks:
 
-### Streamlit Dashboard
-- Model performance visualization
-- Threshold tuning interface
-- ROI scenario exploration
-- Executive-friendly analytics layer
+Hyperparameters
 
----
+Evaluation metrics
 
-## 📁 Repository Structure
+Artifacts
 
+Confusion matrices
+
+Feature importances
+
+Champion model bundle
+
+Champion artifacts saved under:
+
+artifacts/champion/
+    threshold.json
+    metrics.json
+    feature_list.json
+    flaml_best_params.json
+    notes.md
+
+Simulates production model registry workflow.
+
+🌐 Deployment Layer
+FastAPI Inference Service
+
+REST endpoint
+
+JSON in / JSON out
+
+Batch and single prediction support
+
+Policy decision integration
+
+Production-style separation of concerns
+
+Run via:
+
+uvicorn app:app --reload
+Streamlit Executive Dashboard
+
+Provides:
+
+Model performance visualization
+
+Precision-Recall trade-off explorer
+
+Threshold tuning interface
+
+ROI scenario simulator
+
+Business-facing analytics
+
+Bridges technical and executive stakeholders.
+
+📁 Repository Structure
 ai-customer-retention-mlops/
 │
-├── data/ (excluded large datasets)
+├── data/
 ├── notebooks/
 ├── reports/
 ├── scripts/
+├── artifacts/
+│   └── champion/
 ├── src/
 │   ├── data/
 │   ├── models/
+│   ├── serving/
 │   ├── utils/
+│
 ├── leaderboard.md
+├── requirements.txt
 └── README.md
 
-Designed for clarity, modularity, and cloud portability.
+Clean separation of:
 
----
+Data
 
-## ⚙️ How to Run
+Code
+
+Artifacts
+
+Governance outputs
+
+⚙️ How to Run
 
 Install dependencies:
 
@@ -210,51 +361,97 @@ uvicorn app:app --reload
 Launch dashboard:
 
 streamlit run dashboard.py
+🧩 Production-Readiness Considerations
 
----
+Time-aware splits
 
-## 🧩 Production Considerations
+Leakage prevention
 
-- Separation of data vs code
-- Feature leakage prevention
-- Threshold optimization by ROI
-- Reproducible pipelines
-- Scalable architecture design
-- Clean artifact management
-- Designed for containerization and cloud deployment
+Artifact versioning
 
----
+Model governance
 
-## 🎯 What This Project Demonstrates
+ROI-based threshold selection
 
-For MLE:
-- Large-scale tabular ML
-- Imbalanced modeling
-- End-to-end system design
+Modular architecture
 
-For MLOps:
-- Experiment tracking
-- Model comparison workflows
-- Deployment-ready APIs
-- Reproducibility & artifact management
+Scalable design
 
-For AI PM:
-- Business metric alignment
-- ROI modeling
-- Threshold decision trade-offs
-- System-level thinking beyond model accuracy
+Ready for Dockerization
 
----
+Designed for CI/CD extension
 
-## 🔮 Future Enhancements
+🎯 What This Demonstrates
+For Machine Learning Engineer Roles
 
-- Dockerization
-- CI/CD integration
-- Feature store abstraction
-- Drift detection & monitoring
-- Automated retraining workflows
-- Cloud-native deployment
+Large-scale tabular modeling
 
----
+Imbalanced classification
 
-Built to demonstrate production-grade ML system design and measurable business impact.
+Feature engineering at scale
+
+Model comparison workflows
+
+Decision-layer modeling
+
+For MLOps Roles
+
+MLflow experiment tracking
+
+Model artifact management
+
+Champion model bundle
+
+API deployment
+
+Reproducibility
+
+Structured project architecture
+
+For AI Product Roles
+
+Connecting model output to business value
+
+ROI-based decision optimization
+
+Threshold trade-off modeling
+
+System-level thinking
+
+End-to-end ML product lifecycle
+
+🔮 Planned Enhancements
+
+Docker containerization
+
+CI/CD pipelines
+
+Feature store abstraction
+
+Drift detection
+
+Monitoring dashboards
+
+Scheduled retraining workflows
+
+Cloud-native deployment (AWS/GCP)
+
+🏁 Summary
+
+This is not a notebook-based ML project.
+
+It is a production-oriented churn intelligence platform that integrates:
+
+Data engineering
+
+Applied ML
+
+Governance
+
+Deployment
+
+Financial modeling
+
+Product decision logic
+
+Built to reflect real-world ML system ownership from data ingestion to business impact.
