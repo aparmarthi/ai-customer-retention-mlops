@@ -56,7 +56,7 @@ def _convert_datetime_columns(df: pd.DataFrame) -> pd.DataFrame:
     converted = []
     for c in dt_cols:
         if np.issubdtype(df[c].dtype, np.datetime64):
-            df[c] = (df[c].view("int64") // 10**9).astype("float32")  # seconds
+            df[c] = (df[c].astype("int64") // 10**9).astype("float32")  # seconds
             converted.append(c)
     if converted:
         print(f"Datetime columns converted to seconds: {converted}")

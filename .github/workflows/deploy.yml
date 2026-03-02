@@ -1,0 +1,95 @@
+name: Build & Deploy — Churn API
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]   # builds image on PRs but does NOT deploy
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/churn-api
+
+jobs:
+  # ── 1. Run tests ────────────────────────────────────────────────────────────
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install serving dependencies
+        run: pip install -r requirements-serve.txt pytest
+
+      - name: Run policy unit tests
+        run: pytest src/serving/test_policy.py -v
+
+  # ── 2. Build and push Docker image ──────────────────────────────────────────
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write    # allows push to ghcr.io
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}   # auto-injected, no setup needed
+
+      - name: Extract image metadata (tags + labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=sha-          # e.g. sha-a1b2c3d  — exact commit
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.event_name == 'push' }}   # only push on merge, not PRs
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha     # GitHub Actions layer cache — speeds up rebuilds
+          cache-to: type=gha,mode=max
+
+  # ── 3. Deploy to Google Cloud Run (main branch only) ────────────────────────
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}   # add in repo Settings → Secrets
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: churn-api
+          region: us-central1
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          flags: |
+            --allow-unauthenticated
+            --memory=1Gi
+            --cpu=1
+            --min-instances=0
+            --max-instances=3
+            --port=8000

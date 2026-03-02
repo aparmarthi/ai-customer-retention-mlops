@@ -1,0 +1,37 @@
+# Exclude everything not needed inside the serving container
+
+# Training data (large, not needed at inference time)
+data/
+mlruns/
+notebooks/
+reports/
+docs/
+
+# Artifacts NOT needed at inference (only champion/ is copied in Dockerfile)
+artifacts/champion/valid_scored.parquet
+artifacts/champion/threshold_vs_*.png
+
+# Dev and training dependencies
+requirements-dev.txt
+requirements.txt
+
+# Git and CI
+.git/
+.github/
+.gitignore
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp

@@ -69,7 +69,7 @@ def prepare_features(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], list[st
     # If any datetime columns remain (when DROP_DT_COLS=False), convert to int
     for c in X.columns:
         if is_datetime64_any_dtype(X[c]):
-            X[c] = (X[c].view("int64") // 10**9).astype("int64")
+            X[c] = (X[c].astype("int64") // 10**9).astype("int64")
 
     return X, list(X.columns), categorical_cols
 

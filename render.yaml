@@ -1,0 +1,13 @@
+services:
+  # ── FastAPI inference service ─────────────────────────────────────────────
+  - type: web
+    name: churn-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-serve.txt
+    startCommand: uvicorn src.serving.api:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHONPATH
+        value: .
+    # model.pkl (18 MB) is committed to the repo — no external storage needed.
+    # If you move it to S3 later, add AWS_* env vars here and update api.py startup.

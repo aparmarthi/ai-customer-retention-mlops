@@ -79,18 +79,26 @@ secrets.*
 ########################################
 # Large raw datasets (INTENTIONAL)
 ########################################
-# Ignore raw/processed data by default
+# Ignore all dataset folders — data is never committed (too large)
+data/kkbox/
+data/online_retail/
+data/telco/
 data/raw/**
 data/processed/**
-
-.claude/
-
 
 # Allow small samples, docs, and structure
 !data/**/.gitkeep
 !data/**/README.md
 !data/**/docs/**
 !data/**/sample/**
+
+########################################
+# Scratch / temp files
+########################################
+nul
+src/data/build model table initial printing.py
+
+.claude/
 
 ########################################
 # Databases / local state (REQUIRED)
@@ -133,6 +141,9 @@ catboost_info/
 # Reports, metrics, logs are valuable → keep them
 # (Images are OK for GitHub-sized projects)
 # If plots get huge later, we can revisit
+
+# Generated sweep outputs (re-created on each run)
+reports/threshold_sweep.csv
 
 ########################################
 # Node / web tooling (future UI)

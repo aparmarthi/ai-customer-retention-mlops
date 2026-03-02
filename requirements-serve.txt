@@ -1,0 +1,24 @@
+# Minimal runtime requirements for the FastAPI inference service.
+# Does NOT include PyTorch, TabNet, CatBoost, XGBoost, or training dependencies.
+# Use this for all cloud deployments (Render, Railway, Fly.io, etc.).
+
+# Core data
+numpy>=1.26,<3.0
+pandas>=2.2,<2.4
+pyarrow>=16,<19
+scipy>=1.11,<2.0
+
+# ML inference
+scikit-learn>=1.4,<1.6
+joblib>=1.3,<2.0
+lightgbm>=4.3,<5.0
+
+# API serving
+fastapi>=0.115,<0.116
+uvicorn[standard]>=0.30,<0.31
+pydantic>=2.0,<3.0
+python-multipart>=0.0.9  # required for CSV file upload endpoint
+
+# Dashboard (only needed for Streamlit deployments)
+streamlit>=1.37,<2.0
+requests>=2.31,<3.0
