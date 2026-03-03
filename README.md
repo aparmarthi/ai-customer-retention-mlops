@@ -716,6 +716,50 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 - Business assumptions documented separately — not baked silently into model training
 - Executive dashboard for threshold and ROI scenario exploration *(planned)*
 
+## Model registry & lifecycle (lightweight governance)
+
+This project uses a lightweight model lifecycle approach to keep experiments reproducible and make “champion” decisions auditable without standing up a full registry service.
+
+### Model versioning (v1, v2, …)
+
+Models are versioned as **Model Releases**:
+- **v1** – first production-ready “champion” (baseline LightGBM)
+- **v2** – next champion iteration (e.g., improved features / threshold / ROI)
+
+Each release is tied to:
+- a **Git commit SHA** (code version)
+- a **data version identifier** (dataset build + date range + hash)
+- an **evaluation bundle** (metrics + threshold/policy + ROI assumptions)
+
+### What “approval” means (simulated gate)
+
+A candidate model becomes “approved” (and eligible to be promoted to champion) if it passes a small set of offline gates, for example:
+- **Predictive quality** does not regress (e.g., PR-AUC stable or better)
+- **Business value** improves under the ROI simulation assumptions
+- **Policy** is explicitly defined (threshold / top-K targeting)
+
+This is intentionally lightweight and documented (see `docs/model_registry.md`).
+
+### What metadata is logged for each release
+
+For each model release we capture:
+- **Data version**
+  - source + processing pipeline version
+  - date range / snapshot identifier
+  - hash (or fingerprint) of the training table
+- **Code version**
+  - Git commit SHA
+- **Model + metrics**
+  - ROC-AUC, PR-AUC, precision/recall/F1
+  - confusion matrix summary (optional)
+- **Decision policy**
+  - threshold and/or top-K policy
+  - business assumptions used for ROI simulation
+
+See:
+- `docs/model_registry.md` for lifecycle + promotion steps
+- `reports/champion_metadata.json` for the current “champion” bundle metadata
+
 ---
 
 *Built on the [KKBox Churn Prediction](https://www.kaggle.com/competitions/kkbox-churn-prediction-challenge) dataset.*

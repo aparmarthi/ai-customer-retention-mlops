@@ -1,0 +1,43 @@
+{
+  "model_release": "v1",
+  "status": "champion",
+  "approved": true,
+  "trained_at_utc": "YYYY-MM-DDTHH:MM:SSZ",
+  "git": {
+    "commit": "PUT_GIT_SHA_HERE",
+    "branch": "main"
+  },
+  "data": {
+    "dataset_name": "kkbox_churn",
+    "training_table_path": "data/kkbox/processed/model_table.parquet",
+    "snapshot_id": "PUT_SNAPSHOT_ID_OR_DATE_RANGE",
+    "fingerprint": "PUT_HASH_OR_FINGERPRINT"
+  },
+  "features": {
+    "n_features": 40,
+    "feature_list_path": "artifacts/champion/feature_list.json"
+  },
+  "model": {
+    "family": "LightGBM",
+    "trainer_script": "src/models/13_train_champion_lgbm.py",
+    "params_ref": "artifacts/champion/flaml_best_params.json"
+  },
+  "metrics": {
+    "roc_auc": null,
+    "pr_auc": null,
+    "precision": null,
+    "recall": null,
+    "f1": null
+  },
+  "policy": {
+    "type": "threshold",
+    "threshold": null,
+    "top_k": null,
+    "policy_artifact": "artifacts/champion/threshold.json"
+  },
+  "roi_simulation": {
+    "assumptions_doc": "reports/business_assumptions.md",
+    "roi_at_policy": null,
+    "notes": "Update with ROI snapshot used for approval"
+  }
+}
