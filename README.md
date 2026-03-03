@@ -718,48 +718,45 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 
 ## Model registry & lifecycle (lightweight governance)
 
-This project uses a lightweight model lifecycle approach to keep experiments reproducible and make “champion” decisions auditable without standing up a full registry service.
+This project uses a lightweight model lifecycle to keep experiments reproducible and make “champion” decisions auditable—without standing up a hosted model registry.
 
 ### Model versioning (v1, v2, …)
 
 Models are versioned as **Model Releases**:
-- **v1** – first production-ready “champion” (baseline LightGBM)
-- **v2** – next champion iteration (e.g., improved features / threshold / ROI)
+- **v1** — current champion LightGBM model (ROI-optimized threshold policy)
+- **v2** — next champion iteration (e.g., new features, improved calibration, or updated ROI assumptions)
 
 Each release is tied to:
-- a **Git commit SHA** (code version)
-- a **data version identifier** (dataset build + date range + hash)
-- an **evaluation bundle** (metrics + threshold/policy + ROI assumptions)
+- **Git commit SHA** (exact code used)
+- **Data version identifier** (dataset build / snapshot + fingerprint)
+- **Evaluation bundle** (metrics + decision policy + ROI assumptions)
 
 ### What “approval” means (simulated gate)
 
-A candidate model becomes “approved” (and eligible to be promoted to champion) if it passes a small set of offline gates, for example:
-- **Predictive quality** does not regress (e.g., PR-AUC stable or better)
-- **Business value** improves under the ROI simulation assumptions
-- **Policy** is explicitly defined (threshold / top-K targeting)
+A candidate model is marked **approved** (eligible for champion promotion) if it passes offline gates such as:
+- **Predictive quality**: PR-AUC / ROC-AUC do not regress beyond tolerance
+- **Business value**: ROI improves under the documented assumptions
+- **Decision policy**: the targeting rule is explicitly recorded (threshold or top-K)
 
-This is intentionally lightweight and documented (see `docs/model_registry.md`).
+The process is intentionally simple and documented in `docs/model_registry.md`.
 
 ### What metadata is logged for each release
 
-For each model release we capture:
+For every model release we capture:
+
 - **Data version**
-  - source + processing pipeline version
-  - date range / snapshot identifier
-  - hash (or fingerprint) of the training table
+  - snapshot identifier (date range / cutoff policy)
+  - fingerprint (hash) of the training table
 - **Code version**
   - Git commit SHA
-- **Model + metrics**
-  - ROC-AUC, PR-AUC, precision/recall/F1
-  - confusion matrix summary (optional)
-- **Decision policy**
-  - threshold and/or top-K policy
-  - business assumptions used for ROI simulation
+- **Metrics**
+  - ROC-AUC, PR-AUC
+  - threshold-based precision/recall/F1 (when applicable)
+  - precision@K / recall@K (for operational top-K scenarios)
+- **Decision policy + ROI assumptions**
+  - chosen policy (e.g., ROI-optimal threshold = 0.68) and alternatives (e.g., top-K)
+  - ROI assumptions (e.g., churn_cost, intervention_cost, save_rate, ops_budget)
 
 See:
 - `docs/model_registry.md` for lifecycle + promotion steps
-- `reports/champion_metadata.json` for the current “champion” bundle metadata
-
----
-
-*Built on the [KKBox Churn Prediction](https://www.kaggle.com/competitions/kkbox-churn-prediction-challenge) dataset.*
+- `reports/champion_metadata.json` for the current champion’s full metadata bundle*Built on the [KKBox Churn Prediction](https://www.kaggle.com/competitions/kkbox-churn-prediction-challenge) dataset.*
