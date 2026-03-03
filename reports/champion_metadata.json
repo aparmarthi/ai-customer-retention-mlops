@@ -2,42 +2,91 @@
   "model_release": "v1",
   "status": "champion",
   "approved": true,
-  "trained_at_utc": "YYYY-MM-DDTHH:MM:SSZ",
+  "trained_at_utc": "TBD",
   "git": {
-    "commit": "PUT_GIT_SHA_HERE",
+    "commit": "08bc4a78841ed28b3eb58a536b7374730661ec15",
     "branch": "main"
   },
   "data": {
     "dataset_name": "kkbox_churn",
     "training_table_path": "data/kkbox/processed/model_table.parquet",
-    "snapshot_id": "PUT_SNAPSHOT_ID_OR_DATE_RANGE",
-    "fingerprint": "PUT_HASH_OR_FINGERPRINT"
+    "time_col": "txn_last_date",
+    "cutoff_policy": "quantile_0.8",
+    "cutoff_date": "1970-01-01 00:00:00.020170224",
+    "valid_rows": 193205,
+    "valid_churn_rate": 0.012432390466085247,
+    "snapshot_id": "TBD",
+    "fingerprint": "TBD"
   },
   "features": {
     "n_features": 40,
-    "feature_list_path": "artifacts/champion/feature_list.json"
+    "feature_list_path": "TBD"
   },
   "model": {
     "family": "LightGBM",
     "trainer_script": "src/models/13_train_champion_lgbm.py",
-    "params_ref": "artifacts/champion/flaml_best_params.json"
+    "flaml_best_params": {
+      "colsample_bytree": 0.784575377162775,
+      "learning_rate": 0.03583753342568752,
+      "max_bin": 1023,
+      "min_child_samples": 28,
+      "n_estimators": 146,
+      "n_jobs": -1,
+      "num_leaves": 1212,
+      "reg_alpha": 0.5616512686484578,
+      "reg_lambda": 0.0009765625,
+      "verbose": -1,
+      "random_state": 42
+    }
   },
   "metrics": {
-    "roc_auc": null,
-    "pr_auc": null,
-    "precision": null,
-    "recall": null,
-    "f1": null
+    "roc_auc": 0.966004516395873,
+    "pr_auc": 0.5391775160023509,
+    "f1_at_0_5": 0.36784140969163,
+    "precision_at_k": {
+      "5000": 0.269,
+      "10000": 0.1801,
+      "20000": 0.10895
+    },
+    "recall_at_k": {
+      "5000": 0.5599500416319734,
+      "10000": 0.7497918401332223,
+      "20000": 0.9071606994171524
+    }
   },
   "policy": {
-    "type": "threshold",
-    "threshold": null,
-    "top_k": null,
-    "policy_artifact": "artifacts/champion/threshold.json"
+    "primary": {
+      "type": "threshold",
+      "selected_by": "roi_max",
+      "threshold": 0.68,
+      "tp": 1044,
+      "fp": 434,
+      "fn": 1358,
+      "precision": 0.7064,
+      "recall": 0.4346,
+      "f1": 0.5381,
+      "n_targeted": 1478,
+      "roi": 17666.0
+    },
+    "alternative_ops_policy": {
+      "type": "top_k",
+      "policy": "top_10k",
+      "k": 10000,
+      "equiv_threshold": 0.2058,
+      "precision_at_k": 0.1801,
+      "recall_at_k": 0.7498,
+      "tp_at_k": 1801,
+      "roi_at_k": -6776.0,
+      "description": "Target the top-10,000 highest-risk customers by predicted churn probability. Operationally simple and budget-bounded."
+    }
   },
   "roi_simulation": {
     "assumptions_doc": "reports/business_assumptions.md",
-    "roi_at_policy": null,
-    "notes": "Update with ROI snapshot used for approval"
+    "assumptions": {
+      "churn_cost": 120.0,
+      "intervention_cost": 5.0,
+      "save_rate_if_targeted": 0.2,
+      "ops_budget_k": 10000
+    }
   }
 }
