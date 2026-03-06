@@ -13,6 +13,8 @@ Sorted by **PR-AUC (Average Precision)**, then ROC-AUC. Metrics are on the **val
 | 7 | node-oblivious | node-oblivious-0001 | 0.7719 | 0.9737 | 0.5334 | 0.3717 | 0.9446 | 0.8944 | 0.5000 |
 | 8 | tabnet | tabnet-0005 | 0.5233 | 0.9085 | 0.3998 | 0.5671 | 0.3087 | 0.9407 | 0.5000 |
 
+
+
 ## Notes
 
 - PR-AUC is the primary metric because churn is highly imbalanced (~6.4% positive).
