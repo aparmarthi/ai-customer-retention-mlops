@@ -1,0 +1,2 @@
+lightgbm>=4.3,<5.0
+pyarrow>=16,<19
