@@ -159,3 +159,8 @@ pnpm-debug.log*
 ########################################
 *.pid
 docker-compose.override.yml
+
+#sagemaker related
+.venv-sagemaker/
+tmp/
+*.log

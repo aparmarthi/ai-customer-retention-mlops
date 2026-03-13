@@ -4,6 +4,7 @@
 ![LightGBM](https://img.shields.io/badge/Champion-LightGBM-brightgreen)
 ![MLflow](https://img.shields.io/badge/Tracking-MLflow-0194E2?logo=mlflow&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/Serving-FastAPI-009688?logo=fastapi&logoColor=white)
+![SageMaker](https://img.shields.io/badge/Cloud-SageMaker-FF9900?logo=amazonaws&logoColor=white)
 
 > End-to-end ML platform built on **~28 GB of real KKBox subscription data** — from raw logs to a production-grade decision policy. Predicts subscriber churn, optimizes intervention targeting, and simulates measurable business ROI.
 
@@ -26,26 +27,25 @@ This project goes beyond model accuracy. It demonstrates full-stack ML system de
 
 ## Table of Contents
 
-1. [Business Problem](#business-problem)
-2. [System Architecture](#system-architecture)
-3. [Dataset](#dataset)
-4. [Data Pipeline](#data-pipeline)
-5. [Models & Leaderboard](#models--leaderboard)
-6. [Champion Model](#champion-model)
-7. [Experiment Tracking (MLflow)](#experiment-tracking-mlflow)
-8. [Decision Policy Engine](#decision-policy-engine)
-9. [ROI Simulation](#roi-simulation)
-10. [Inference API (FastAPI)](#inference-api-fastapi)
-11. [Explainability & Product Insights](#explainability--product-insights)
-12. [Tech Stack](#tech-stack)
-13. [Repository Structure](#repository-structure)
-14. [Quick Start](#quick-start)
-15. [Project Status](#project-status)
-16. [What This Demonstrates](#what-this-demonstrates)
+1. [Problem & Business Goal](#1-problem--business-goal)
+2. [Data & Split Strategy](#2-data--split-strategy)
+3. [Model Benchmarking Results](#3-model-benchmarking-results)
+4. [Champion Model & Why It Won](#4-champion-model--why-it-won)
+5. [Decision Policy & ROI Simulation](#5-decision-policy--roi-simulation)
+6. [Explainability & Product Insights](#6-explainability--product-insights)
+7. [Serving: FastAPI Inference API](#7-serving-fastapi-inference-api)
+8. [Experiment Tracking: MLflow](#8-experiment-tracking-mlflow)
+9. [Cloud Validation: AWS SageMaker](#9-cloud-validation-aws-sagemaker)
+10. [Monitoring Plan](#10-monitoring-plan)
+11. [Tech Stack](#11-tech-stack)
+12. [Repository Structure](#12-repository-structure)
+13. [Quick Start](#13-quick-start)
+14. [Project Status & Next Steps](#14-project-status--next-steps)
+15. [What This Demonstrates](#15-what-this-demonstrates)
 
 ---
 
-## Business Problem
+## 1. Problem & Business Goal
 
 Every subscription business faces the same three questions:
 
@@ -61,66 +61,14 @@ Traditional ML projects optimize ROC-AUC. This system optimizes **business ROI**
 
 ---
 
-## System Architecture
-
-```
-Raw Subscription & Transaction Logs  (~28 GB, KKBox)
-        |
-        v
-  ETL & Aggregation  (src/data/  --  7 numbered pipeline scripts)
-  |  01_convert_to_parquet   Raw CSV -> columnar format
-  |  02_build_spine          User-month observation spine
-  |  03_aggregate_txns       Transaction-level behavioral rollups
-  |  04_aggregate_logs       User activity log aggregations
-  |  05_build_model_table    Join all signals into ML-ready table
-  |  06_create_sample        Lightweight dev/test extracts
-  |  07_derived_tables       Derived feature tables
-        |
-        v
-  Chronological Train / Validation Split
-  |  Train:  txn_last_date <= 2017-01-31
-  |  Valid:  Feb 2017 holdout (most recent 20%)
-        |
-        v
-  Model Training  (src/models/  --  12 experiments)
-  |  Baseline -> LogReg -> DTree -> XGB -> LGBM -> CatBoost
-  |  -> RF -> TabNet -> FT-Transformer -> NODE -> Ensemble -> FLAML AutoML
-        |
-        v
-  MLflow Experiment Tracking + Leaderboard  (leaderboard.md)
-        |
-        v
-  Champion Selection  (artifacts/champion/)
-  |  FLAML AutoML -- LightGBM  |  ROC-AUC 0.9660  |  PR-AUC 0.5392
-        |
-        v
-  Threshold Optimization & ROI Sweep  (src/evaluation/)
-  |  99-step sweep: 0.01 -> 0.99
-  |  Precision, Recall, F1, Precision@K, ROI per threshold
-  |  ROI-optimal threshold: t=0.68, ROI=$17,666
-  |  Ops-friendly top-10k: Precision=18%, Recall=75%
-        |
-        v
-  Decision Policy Engine  (src/serving/policy.py)
-  |  Hybrid:
-  |    Primary:   top-K (K=10,000)  -- operational capacity driven
-  |    Fallback:  ROI threshold (t=0.68)  -- cost-sensitive contexts
-        |
-        v
-  FastAPI Inference Service  (src/serving/api.py)
-        |
-        v
-  Streamlit Executive Dashboard  [planned]
-```
-
----
-
-## Dataset
+## 2. Data & Split Strategy
 
 **Source:** [KKBox Churn Prediction Challenge (Kaggle)](https://www.kaggle.com/competitions/kkbox-churn-prediction-challenge)
 
+### 2.1 Dataset Overview
+
 | Property | Value |
-|---|---|
+|---|---:|
 | Raw size | ~28 GB |
 | Processed model table | ~1M+ rows |
 | Validation set | 193,205 rows |
@@ -131,11 +79,18 @@ Raw Subscription & Transaction Logs  (~28 GB, KKBox)
 
 Large raw files are excluded from Git. The scored validation set and all champion artifacts are committed for reproducibility.
 
-> **Why the churn rates differ:** The ~6% figure is the overall dataset rate. The Feb 2017 holdout captures a specific month's signal with a different distribution — expected with time-based splits and exactly what makes evaluation realistic. Random splits blend these distributions and inflate all metrics.
+### 2.2 Why Time-Based Split
 
----
+The champion evaluation uses a **chronological holdout** — train on everything up to Jan 31 2017, validate on Feb 2017. This simulates production: the model trains on historical data and predicts a future month it has never seen.
 
-## Data Pipeline
+| | Random Split (XGBoost) | Time-Based Holdout (Champion) |
+|---|---:|---:|
+| ROC-AUC | 0.9875 | **0.9660** |
+| PR-AUC | 0.8771 | **0.5392** |
+
+Lower time-based numbers are more honest — random splits leak temporal patterns and inflate all metrics. The ~6% overall churn rate drops to ~1.2% in the Feb 2017 holdout, which is expected with time-based splits and exactly what makes evaluation realistic.
+
+### 2.3 Data Pipeline
 
 Seven numbered, independently runnable scripts — no notebook dependencies:
 
@@ -155,50 +110,52 @@ Seven numbered, independently runnable scripts — no notebook dependencies:
 - DuckDB used for large-scale in-process SQL aggregation
 - All transformations are scriptable and reproducible
 
+### 2.4 System Architecture
+
+![System Architecture](docs/architecture.png)
+
+*Regenerate: `python scripts/generate_architecture_diagram.py`*
+
 ---
 
-## Models & Leaderboard
+## 3. Model Benchmarking Results
 
-All models tracked in [`leaderboard.md`](leaderboard.md). Sorted by PR-AUC — the primary metric under class imbalance.
+12 model architectures evaluated — from baselines through deep learning and AutoML. Full details in [`leaderboard.md`](leaderboard.md).
 
-| # | Model | PR-AUC | ROC-AUC |
-|---|---|---:|---:|
-| 01 | Majority class baseline | — | — |
-| 02 | Logistic Regression | — | — |
-| 03 | Decision Tree | — | — |
-| 04 | XGBoost | 0.8771 | 0.9875 |
-| 05 | LightGBM | 0.8887 | 0.9894 |
-| 06 | CatBoost | 0.8737 | 0.9865 |
-| 07 | Random Forest | 0.7935 | 0.9782 |
-| 08 | TabNet | 0.5233 | 0.9085 |
-| 09 | FT-Transformer | 0.8214 | 0.9824 |
-| 10 | NODE | 0.7719 | 0.9737 |
-| 11 | Ensemble (soft vote) | 0.8887 | 0.9894 |
-| **12** | **FLAML AutoML — LightGBM** | **Champion** | **Champion** |
+Sorted by PR-AUC — the primary metric under class imbalance:
 
-> Leaderboard metrics used random splits for comparison speed. **Champion evaluation uses the time-based holdout** — the only number that matters for production.
+| # | Model | PR-AUC | ROC-AUC | F1 | Train Time | Notes |
+|---:|---|---:|---:|---:|---:|---|
+| 1 | LightGBM | 0.8887 | 0.9894 | 0.7845 | ~3 min | Baseline config, scale_pos_weight |
+| 2 | XGBoost | 0.8771 | 0.9875 | — | ~2 min | Baseline XGBoost |
+| 3 | CatBoost | 0.8737 | 0.9865 | 0.7282 | ~3.7 min | GPU-accelerated, early stop |
+| 4 | FT-Transformer | 0.8214 | 0.9824 | 0.6825 | ~23 min | 4-layer transformer, AMP, GPU |
+| 5 | Random Forest | 0.7935 | 0.9782 | 0.5798 | ~5 min | One-hot, balanced_subsample |
+| 6 | NODE | 0.7719 | 0.9737 | 0.5334 | ~11 min | 128 oblivious trees, GPU |
+| 7 | TabNet | 0.5233 | 0.9085 | 0.3998 | ~32 min | 5 failed runs before convergence |
 
-### Random Split vs. Time-Based Holdout
+> Leaderboard metrics use random splits for comparison speed. **Champion evaluation uses the time-based holdout** — the only number that matters for production.
 
-| | Random Split (XGBoost) | Time-Based Holdout (Champion) |
-|---|---:|---:|
-| ROC-AUC | 0.9875 | **0.9660** |
-| PR-AUC | 0.8771 | **0.5392** |
+### 3.1 Class Imbalance Strategy
 
-Lower time-based numbers are more honest — and far more representative of real production performance.
-
-### Class Imbalance Strategy
-
-- Class weighting at training time
+- Class weighting at training time (`scale_pos_weight`)
 - PR-AUC as the primary evaluation metric (not ROC-AUC, not accuracy)
 - Precision@K for business-facing evaluation
 - Full 99-step threshold sweep to find the ROI-aligned decision boundary
 
+### 3.2 Why PR-AUC Over ROC-AUC
+
+ROC-AUC can appear high (~0.96+) even when the model performs poorly on the minority class, because it credits correct majority-class predictions equally. With a 1.2% churn rate in the time-based holdout, ROC-AUC overstates discriminative power.
+
+PR-AUC directly measures how well the model concentrates true churners at the top of the ranked list — which is exactly what the business needs for targeted intervention. A model with 0.96 ROC-AUC but 0.40 PR-AUC is a model that looks great on paper but wastes outreach budget.
+
 ---
 
-## Champion Model
+## 4. Champion Model & Why It Won
 
 **FLAML AutoML — LightGBM** | MLflow experiment: `kkbox_churn` | Run: `champion_lgbm_time_holdout`
+
+### 4.1 Champion Metrics (time-based holdout)
 
 | Metric | Value |
 |---|---:|
@@ -214,17 +171,236 @@ Lower time-based numbers are more honest — and far more representative of real
 
 **Churn concentration lift:** Top-10k churn rate 18% vs. base rate ~6% — roughly **3x concentration** of churners over random selection.
 
+### 4.2 Why This Model Won
+
+1. **Highest PR-AUC on the time-based holdout (0.5392)** — PR-AUC directly measures ranking quality under severe class imbalance (1.24% validation churn rate)
+2. **Architecture dominance confirmed twice** — LightGBM ranked #1 in the random-split leaderboard (0.8887 PR-AUC), and FLAML's AutoML search independently converged on LightGBM as the best estimator
+3. **Broader hyperparameter search** — FLAML explored configurations manual tuning missed (e.g., `num_leaves=1212` vs. manual `64`, `reg_alpha=0.56`), producing better generalization to the harder time-based split
+4. **Training efficiency** — LightGBM trains in ~3 minutes vs. 23-32 minutes for deep learning alternatives (FT-Transformer, TabNet) that scored worse on every metric
+
 Artifacts frozen in `artifacts/champion/` — see [`artifacts/champion/notes.md`](artifacts/champion/notes.md) for the reproducibility checklist.
 
 ---
 
-## Experiment Tracking (MLflow)
+## 5. Decision Policy & ROI Simulation
+
+### 5.1 Decision Policy Engine
+
+Located in `src/serving/policy.py`. The production policy is **hybrid**:
+
+```json
+{
+  "primary_policy":   { "type": "top_k",    "k": 10000 },
+  "secondary_policy": { "type": "threshold", "threshold": 0.68 }
+}
+```
+
+#### Policy 1 — Ops-Friendly Top-K *(primary)*
+
+Target the **top-10,000 highest-risk subscribers** by predicted probability, each scoring cycle.
+
+| Metric | Value |
+|---|---:|
+| Contacts per cycle | 10,000 (fixed) |
+| Precision | 18.0% |
+| Recall | 74.9% |
+| Equiv. threshold | ~0.21 |
+
+**Why top-K is preferred operationally:**
+- Contact volume is predictable and budget-bounded every month
+- No threshold recalibration needed as score distributions shift over time
+- Highest-risk users are always selected
+- Simple governance: rank and send
+
+#### Policy 2 — ROI-Optimal Threshold *(fallback)*
+
+Used when operational capacity is not the binding constraint — e.g., automated low-cost interventions.
+
+| Metric | Value |
+|---|---:|
+| Threshold | 0.68 |
+| Contacts | 1,478 |
+| Precision | 70.6% |
+| Recall | 43.5% |
+| Estimated net ROI | **$17,666** |
+
+`PolicyDecision` objects include: churn probability, action (`target` / `no_target`), policy used, threshold, rank, and metadata.
+
+### 5.2 ROI Simulation
+
+#### Framework
+
+```
+Net ROI = (TP x save_rate x churn_cost) - (N_targeted x intervention_cost)
+
+Where:
+  TP                = true positives (targeted users who would have churned)
+  save_rate         = fraction of targeted churners successfully retained
+  churn_cost        = revenue lost per unretained churner
+  intervention_cost = cost per outreach contact
+```
+
+#### Scenario Comparison
+
+| Scenario | Cost/contact | Save rate | Value/save | Net result |
+|---|---:|---:|---:|---:|
+| **Outreach** (email/SMS/nudge) | $0.50 | 12% | $80 | **~$12,200** |
+| **Incentive** (discount/offer) | $10.00 | 20% | $60 | Cost-sensitive |
+| **ROI-optimal threshold** | $5.00 | 20% | $120 | **$17,666** |
+
+Full scenario documentation: [`reports/business_assumptions.md`](reports/business_assumptions.md)
+
+#### Threshold Sweep Outputs
+
+`src/evaluation/threshold_optimization.py` sweeps 99 thresholds and produces:
+
+| Output | Description |
+|---|---|
+| `reports/threshold_sweep.csv` | Per-threshold: precision, recall, F1, Precision@K, ROI, n_targeted |
+| `artifacts/champion/threshold.json` | Selected policy parameters (both policies) |
+| `reports/threshold_vs_precision_recall.png` | Precision / Recall / F1 vs. threshold |
+| `reports/threshold_vs_roi.png` | Expected ROI vs. threshold with annotated peak |
+
+---
+
+## 6. Explainability & Product Insights
+
+To move beyond black-box prediction, the champion LightGBM model is analyzed with **SHAP** (SHapley Additive exPlanations) — making predictions auditable for engineers and actionable for product teams.
+
+### 6.1 SHAP Analysis
+
+SHAP decomposes each individual prediction into additive feature contributions:
+
+```
+churn_probability  =  base_rate
+                    + Σ (per-feature SHAP contributions)
+```
+
+Every feature either increases or decreases a user's churn risk relative to the population average — making each score fully explainable.
+
+**What SHAP enables:**
+- Identify the strongest global churn drivers across the model
+- Separate risk-increasing signals from protective ones
+- Detect when the model is learning noise vs. real behavioral patterns
+- Segment users into actionable behavioral cohorts
+
+**Outputs** — computed on a 20,000-row validation sample via `shap.TreeExplainer`:
+
+```bash
+python -m src.evaluation.shap_analysis
+```
+
+| Output | Description |
+|---|---|
+| `reports/shap_summary.png` | Beeswarm plot — feature importance + direction across all users |
+| `reports/top_features.csv` | Ranked feature list with mean absolute SHAP values |
+
+### 6.2 Top Churn Drivers
+
+| Rank | Feature | Mean \|SHAP\| | Business Signal |
+|---:|---|---:|---|
+| 1 | `auto_renew_rate` | 0.593 | Auto-renewal opt-in rate — the single strongest churn predictor; users not opting in are signaling exit intent |
+| 2 | `cancel_rate` | 0.499 | Historical cancellation ratio — past behavior is a very strong fingerprint for future churn |
+| 3 | `plan_list_price_max` | 0.329 | Peak plan price seen — captures price sensitivity and premium-tier exposure |
+| 4 | `log_last_date` | 0.281 | Recency of last activity — disengagement precursor; a leading indicator before cancellation |
+| 5 | `membership_expire_date_max` | 0.247 | Subscription horizon — proximity to expiry concentrates churn risk |
+
+### 6.3 Model-Derived Risk Signals
+
+SHAP confirms that the model has learned interpretable, causally-plausible churn signals — not spurious correlations:
+
+| Risk Signal | Key Feature | Business Interpretation |
+|---|---|---|
+| Auto-renewal opt-out pattern | `auto_renew_rate` | Strongest signal — low auto-renewal rate directly reflects disengagement or intent to cancel |
+| Historical cancellation behavior | `cancel_rate` | Past cancellations strongly predict future churn; the model learned this behavioral fingerprint |
+| Declining recent activity | `log_last_date` | Recency of last activity is a leading indicator — disengagement precedes cancellation |
+| Imminent subscription expiry | `membership_expire_date_max` | Expiry proximity concentrates churn risk — intervention window is narrow |
+| Short tenure | `txn_tenure_days_approx` | Early lifecycle churn — product fit or onboarding issue |
+
+### 6.4 Translating Risk Into Action
+
+Model scores and SHAP cohort signals together enable targeted retention strategies:
+
+| Intervention | Channel | When to Use |
+|---|---|---|
+| Proactive outreach | Email / SMS / in-app push | Default for all top-K users |
+| Renewal reminder | Email / push notification | Users within 7–14 days of expiry |
+| Payment resolution | Support + email | Users with recent payment failures |
+| Friction reduction | UX / product flow | Users dropping off at renewal step |
+| Human-assisted retention | Support team | High-LTV users in top decile of risk |
+
+### 6.5 Experimental Validation *(AI Product Lens)*
+
+Churn models predict *who will churn* — not *who will respond to intervention*. Without a control group, measured ROI conflates natural churn with model-driven saves. The correct validation approach:
+
+1. Score all subscribers monthly
+2. Select the top-K highest-risk users
+3. Randomly split into: **50% Treatment** (retention campaign) / **50% Control** (no contact)
+4. Measure churn rate difference between groups after 30 days
+
+This isolates true incremental lift:
+
+```
+True incremental ROI  =  (churn_rate_control − churn_rate_treatment)
+                       × N_treatment
+                       × LTV
+                       − intervention_cost
+```
+
+This is the correct metric — it separates predictive correlation from **causal retention uplift**.
+
+---
+
+## 7. Serving: FastAPI Inference API
+
+Production-ready REST API at `src/serving/api.py` — wraps the champion model and exposes both decision policies over HTTP. Built with FastAPI and Pydantic; all artifacts are loaded at startup from `artifacts/champion/`.
+
+```bash
+uvicorn src.serving.api:app --reload
+# Swagger UI: http://localhost:8000/docs
+```
+
+### 7.1 Endpoints
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/health` | GET | Model load status, artifact paths, feature count, default threshold |
+| `/predict` | POST | Single-record churn probability + threshold action label |
+| `/predict_batch` | POST | Batch scoring via JSON list or CSV file upload — threshold or top-K policy |
+
+### 7.2 Two Serving Policies
+
+**Threshold policy** (single record or batch):
+```json
+POST /predict
+{ "record": { ...feature dict... }, "policy": "threshold", "threshold": 0.68 }
+```
+
+**Top-K policy** (batch only — ranking requires population context):
+```json
+POST /predict_batch
+{ "records": [...], "policy": "top_k", "k": 10000 }
+```
+
+Returns per-record: `churn_probability`, `churn_label`, `rank` (top-K only), `policy_used`, `threshold_used`.
+
+**CSV batch upload** is also supported via multipart form upload to `/predict_batch` — enabling analyst-driven batch scoring without a pipeline dependency.
+
+### 7.3 Design Notes
+
+- Pydantic input/output models enforce contract at the API boundary — `PredictRequest`, `BatchPredictRequest`, `BatchPredictResponse`
+- Feature alignment at inference time: missing columns filled with `NaN`, extra columns silently dropped — robust to schema drift
+- Equivalent threshold for the configured top-K is surfaced in the response when it matches `threshold.json`, giving every top-K batch run a threshold anchor for auditability
+
+---
+
+## 8. Experiment Tracking: MLflow
 
 All training runs are tracked in the **`kkbox_churn`** MLflow experiment — params, metrics, and artifacts logged atomically in every run, enabling full reproducibility and side-by-side model comparison across all 12 experiments.
 
 A custom wrapper at `src/utils/mlflow_utils.py` provides safe, robust logging: nested dict flattening, non-numeric filtering, graceful missing-file handling, and standardized metric naming — ensuring consistent, queryable data across every run.
 
-### What Gets Logged Per Run
+### 8.1 What Gets Logged Per Run
 
 **Parameters** — logged via `log_params_flat`, which auto-flattens nested dicts using `.` separator:
 
@@ -265,7 +441,7 @@ A custom wrapper at `src/utils/mlflow_utils.py` provides safe, robust logging: n
 | `threshold_vs_precision_recall.png` | Precision / Recall / F1 vs. threshold plot |
 | `threshold_vs_roi.png` | Expected ROI vs. threshold with annotated peak |
 
-### Experiment Structure
+### 8.2 Experiment Structure
 
 ```
 MLflow Experiment: kkbox_churn
@@ -279,7 +455,7 @@ MLflow Experiment: kkbox_churn
   +-- [all 12 model runs comparable in the same experiment view]
 ```
 
-### View in the MLflow UI
+### 8.3 View in the MLflow UI
 
 ```bash
 mlflow ui
@@ -288,7 +464,7 @@ mlflow ui
 
 Compare all 12 model runs side-by-side, filter by metric, inspect per-run artifact lineage, and trace every reported number back to the exact data and code that produced it.
 
-### Design Decisions Worth Noting
+### 8.4 Design Decisions Worth Noting
 
 - **Atomic artifact bundles** — model, `valid_scored.parquet`, and all downstream reports are logged in the same run. Every metric is permanently traceable to the data that generated it — no orphaned checkpoints or mismatched eval files
 - **Split method audit trail** — `cutoff_policy` records `quantile_0.8` when the fixed-date fallback triggered, not the intended `fixed_date` config. In production, a model registered with the wrong split metadata can cause silent evaluation-training mismatch bugs months later
@@ -297,221 +473,105 @@ Compare all 12 model runs side-by-side, filter by metric, inspect per-run artifa
 
 ---
 
-## Decision Policy Engine
+## 9. Cloud Validation: AWS SageMaker
 
-Located in `src/serving/policy.py`. The production policy is **hybrid**:
+To demonstrate that the local champion pipeline translates to managed cloud infrastructure, a single controlled SageMaker training job was executed using the same LightGBM configuration and hyperparameters as the local champion.
 
-```json
-{
-  "primary_policy":   { "type": "top_k",    "k": 10000 },
-  "secondary_policy": { "type": "threshold", "threshold": 0.68 }
-}
-```
+Full documentation: [`cloud/sagemaker/README.md`](cloud/sagemaker/README.md)
 
-### Policy 1 — Ops-Friendly Top-K *(primary)*
+### 9.1 Purpose
 
-Target the **top-10,000 highest-risk subscribers** by predicted probability, each scoring cycle.
+This phase validates **cloud workflow capability** — not model improvement. It proves end-to-end SageMaker literacy: S3 data ingestion, managed training, artifact packaging, and Model Registry integration.
 
-| Metric | Value |
-|---|---:|
-| Contacts per cycle | 10,000 (fixed) |
-| Precision | 18.0% |
-| Recall | 74.9% |
-| Equiv. threshold | ~0.21 |
+Only one job was run because the purpose was to demonstrate the workflow, not repeat tuning in the cloud. SageMaker bills per-second of instance time — running 12+ experiments on `ml.m5.large` would add cost with no modeling benefit.
 
-**Why top-K is preferred operationally:**
-- Contact volume is predictable and budget-bounded every month
-- No threshold recalibration needed as score distributions shift over time
-- Highest-risk users are always selected
-- Simple governance: rank and send
+### 9.2 SageMaker Job Details
 
-### Policy 2 — ROI-Optimal Threshold *(fallback)*
-
-Used when operational capacity is not the binding constraint — e.g., automated low-cost interventions.
-
-| Metric | Value |
-|---|---:|
-| Threshold | 0.68 |
-| Contacts | 1,478 |
-| Precision | 70.6% |
-| Recall | 43.5% |
-| Estimated net ROI | **$17,666** |
-
-`PolicyDecision` objects include: churn probability, action (`target` / `no_target`), policy used, threshold, rank, and metadata.
-
----
-
-## ROI Simulation
-
-### Framework
-
-```
-Net ROI = (TP x save_rate x churn_cost) - (N_targeted x intervention_cost)
-
-Where:
-  TP                = true positives (targeted users who would have churned)
-  save_rate         = fraction of targeted churners successfully retained
-  churn_cost        = revenue lost per unretained churner
-  intervention_cost = cost per outreach contact
-```
-
-### Scenario Comparison
-
-| Scenario | Cost/contact | Save rate | Value/save | Net result |
-|---|---:|---:|---:|---:|
-| **Outreach** (email/SMS/nudge) | $0.50 | 12% | $80 | **~$12,200** |
-| **Incentive** (discount/offer) | $10.00 | 20% | $60 | Cost-sensitive |
-| **ROI-optimal threshold** | $5.00 | 20% | $120 | **$17,666** |
-
-Full scenario documentation: [`reports/business_assumptions.md`](reports/business_assumptions.md)
-
-### Threshold Sweep Outputs
-
-`src/evaluation/threshold_optimization.py` sweeps 99 thresholds and produces:
-
-| Output | Description |
+| Property | Value |
 |---|---|
-| `reports/threshold_sweep.csv` | Per-threshold: precision, recall, F1, Precision@K, ROI, n_targeted |
-| `artifacts/champion/threshold.json` | Selected policy parameters (both policies) |
-| `reports/threshold_vs_precision_recall.png` | Precision / Recall / F1 vs. threshold |
-| `reports/threshold_vs_roi.png` | Expected ROI vs. threshold with annotated peak |
+| Job type | SageMaker Training Job (Script Mode) |
+| Training image | `sklearn 1.2-1` (pre-built SageMaker container) |
+| Instance type | `ml.m5.large` |
+| Entry script | `cloud/sagemaker/train.py` |
+| Input channel | S3 parquet via `train` channel |
+| Hyperparameters | Identical to local champion (FLAML-tuned LightGBM) |
+| Model artifact | `s3://amey-kkbox-sagemaker-us-east-1/kkbox-churn/training/artifacts/kkbox-churn-champion-20260310142800/output/model.tar.gz` |
+
+### 9.3 Local Champion vs. SageMaker Run
+
+| Metric | Local Champion | SageMaker Run |
+|---|---:|---:|
+| ROC-AUC | **0.9660** | 0.9484 |
+| PR-AUC | **0.5392** | 0.4707 |
+| F1 | 0.3678 | **0.4658** |
+
+- **ROC-AUC / PR-AUC:** Local model ranks churners better. Differences stem from data subset fraction (cost control) and quantile fallback split shifting the validation distribution
+- **F1 reversal:** Local F1 uses a fixed 0.5 threshold. F1 is sensitive to the score distribution near the cutoff. ROC-AUC and PR-AUC are threshold-invariant and remain the more reliable cross-environment metrics
+
+### 9.4 Workflow Architecture
+
+```
+Local machine                          AWS
+─────────────                          ───
+launch_training_job.py  ──────────►  SageMaker Training Job
+                                       ├── reads parquet from S3 (train channel)
+                                       ├── runs train.py (LightGBM champion config)
+                                       ├── writes model.pkl, metrics.json, valid_scored.parquet
+                                       └── packages /opt/ml/model/ → model.tar.gz → S3
+
+register_model.py  ───────────────►  SageMaker Model Registry
+                                       └── creates versioned model package (Approved)
+```
+
+### 9.5 What This Phase Demonstrates
+
+- S3-based input/output data workflows
+- SageMaker Script Mode with custom `train.py` and `requirements.txt`
+- Chronological train/validation split preserved in a managed environment
+- Artifact management: model, metrics, scored validation set auto-packaged to S3
+- Model Registry: versioned, approval-gated model package creation
+- Cost-controlled execution: single job, single instance, optional subset fraction
 
 ---
 
-## Inference API (FastAPI)
+## 10. Monitoring Plan
 
-Production-ready REST API at `src/serving/api.py` — wraps the champion model and exposes both decision policies over HTTP. Built with FastAPI and Pydantic; all artifacts are loaded at startup from `artifacts/champion/`.
+This section describes the monitoring strategy that would apply once the model serves live predictions. No live monitoring is deployed (there is no production endpoint), but the architecture is designed to support it.
 
-```bash
-uvicorn src.serving.api:app --reload
-# Swagger UI: http://localhost:8000/docs
-```
+### 10.1 What to Monitor
 
-### Endpoints
+| Layer | Signal | Detection Method | Action |
+|---|---|---|---|
+| **Input data** | Feature distribution drift | PSI (Population Stability Index) on each feature, computed monthly | Alert if PSI > 0.20 on any top-10 SHAP feature |
+| **Input data** | Missing value rate spike | Track null fraction per feature per scoring batch | Alert if null rate exceeds 2x historical baseline |
+| **Input data** | Volume anomaly | Row count per scoring cycle | Alert if batch size deviates >20% from expected |
+| **Model output** | Score distribution shift | Compare monthly prediction histogram vs. training baseline (KS test or PSI) | Alert if distribution shifts significantly — may indicate concept drift |
+| **Model output** | Churn rate vs. predicted rate | Compare predicted positive rate to observed churn rate (with label delay) | Persistent gap suggests calibration decay |
+| **Business** | Precision@K decay | Track actual churn rate in top-K targeted users once labels arrive (~30-day delay) | Retrain if Precision@K drops below 1.5x base rate |
+| **Business** | ROI tracking | Compare simulated ROI vs. actual campaign outcomes | Adjust cost assumptions or retrain if ROI underperforms projection by >30% |
+| **Infrastructure** | API latency / error rate | FastAPI middleware logging (p50, p95, p99 latency) | Scale or investigate if p95 > 500ms or error rate > 1% |
 
-| Endpoint | Method | Description |
+### 10.2 Label Delay Problem
+
+Churn labels arrive with a ~30-day delay (a user churns at the end of their billing cycle). This means model performance metrics lag by one month. During that window, **input drift signals are the only early warning**.
+
+Monitoring priority:
+1. **Immediate** (every batch): input schema validation, null rates, volume, prediction distribution
+2. **Delayed** (monthly, after labels arrive): Precision@K, recall, PR-AUC on the latest scored cohort
+3. **Periodic** (quarterly): full retrain evaluation against the latest 3-month window
+
+### 10.3 Retraining Triggers
+
+| Trigger | Condition | Response |
 |---|---|---|
-| `/health` | GET | Model load status, artifact paths, feature count, default threshold |
-| `/predict` | POST | Single-record churn probability + threshold action label |
-| `/predict_batch` | POST | Batch scoring via JSON list or CSV file upload — threshold or top-K policy |
-
-### Two Serving Policies
-
-**Threshold policy** (single record or batch):
-```json
-POST /predict
-{ "record": { ...feature dict... }, "policy": "threshold", "threshold": 0.68 }
-```
-
-**Top-K policy** (batch only — ranking requires population context):
-```json
-POST /predict_batch
-{ "records": [...], "policy": "top_k", "k": 10000 }
-```
-
-Returns per-record: `churn_probability`, `churn_label`, `rank` (top-K only), `policy_used`, `threshold_used`.
-
-**CSV batch upload** is also supported via multipart form upload to `/predict_batch` — enabling analyst-driven batch scoring without a pipeline dependency.
-
-### Design Notes
-
-- Pydantic input/output models enforce contract at the API boundary — `PredictRequest`, `BatchPredictRequest`, `BatchPredictResponse`
-- Feature alignment at inference time: missing columns filled with `NaN`, extra columns silently dropped — robust to schema drift
-- Equivalent threshold for the configured top-K is surfaced in the response when it matches `threshold.json`, giving every top-K batch run a threshold anchor for auditability
+| Scheduled | Quarterly (or after major product changes) | Retrain on latest 12-month window, evaluate on most recent month |
+| Performance-based | Precision@K drops below 1.5x base rate for 2 consecutive months | Retrain with updated features and re-evaluate |
+| Drift-based | PSI > 0.25 on 3+ top-10 features in a single month | Investigate root cause, retrain if feature semantics changed |
+| Emergency | Model serving errors or complete prediction failure | Rollback to previous approved Model Registry version |
 
 ---
 
-## Explainability & Product Insights
-
-To move beyond black-box prediction, the champion LightGBM model is analyzed with **SHAP** (SHapley Additive exPlanations) — making predictions auditable for engineers and actionable for product teams.
-
-### SHAP Analysis
-
-SHAP decomposes each individual prediction into additive feature contributions:
-
-```
-churn_probability  =  base_rate
-                    + Σ (per-feature SHAP contributions)
-```
-
-Every feature either increases or decreases a user’s churn risk relative to the population average — making each score fully explainable.
-
-**What SHAP enables:**
-- Identify the strongest global churn drivers across the model
-- Separate risk-increasing signals from protective ones
-- Detect when the model is learning noise vs. real behavioral patterns
-- Segment users into actionable behavioral cohorts
-
-**Outputs** — computed on a 20,000-row validation sample via `shap.TreeExplainer`:
-
-```bash
-python -m src.evaluation.shap_analysis
-```
-
-| Output | Description |
-|---|---|
-| `reports/shap_summary.png` | Beeswarm plot — feature importance + direction across all users |
-| `reports/top_features.csv` | Ranked feature list with mean absolute SHAP values |
-
-**Top 5 features by mean |SHAP|** (from the champion run):
-
-| Rank | Feature | Mean \|SHAP\| | Business Signal |
-|---:|---|---:|---|
-| 1 | `auto_renew_rate` | 0.593 | Auto-renewal opt-in rate — the single strongest churn predictor; users not opting in are signaling exit intent |
-| 2 | `cancel_rate` | 0.499 | Historical cancellation ratio — past behavior is a very strong fingerprint for future churn |
-| 3 | `plan_list_price_max` | 0.329 | Peak plan price seen — captures price sensitivity and premium-tier exposure |
-| 4 | `log_last_date` | 0.281 | Recency of last activity — disengagement precursor; a leading indicator before cancellation |
-| 5 | `membership_expire_date_max` | 0.247 | Subscription horizon — proximity to expiry concentrates churn risk |
-
-### Model-Derived Risk Signals
-
-SHAP confirms that the model has learned interpretable, causally-plausible churn signals — not spurious correlations:
-
-| Risk Signal | Key Feature | Business Interpretation |
-|---|---|---|
-| Auto-renewal opt-out pattern | `auto_renew_rate` | Strongest signal — low auto-renewal rate directly reflects disengagement or intent to cancel |
-| Historical cancellation behavior | `cancel_rate` | Past cancellations strongly predict future churn; the model learned this behavioral fingerprint |
-| Declining recent activity | `log_last_date` | Recency of last activity is a leading indicator — disengagement precedes cancellation |
-| Imminent subscription expiry | `membership_expire_date_max` | Expiry proximity concentrates churn risk — intervention window is narrow |
-| Short tenure | `txn_tenure_days_approx` | Early lifecycle churn — product fit or onboarding issue |
-
-These signals align with real-world subscription churn behavior and provide a mechanism to **validate the model’s internal logic** beyond held-out accuracy.
-
-### Translating Risk Into Action
-
-Model scores and SHAP cohort signals together enable targeted retention strategies:
-
-| Intervention | Channel | When to Use |
-|---|---|---|
-| Proactive outreach | Email / SMS / in-app push | Default for all top-K users |
-| Renewal reminder | Email / push notification | Users within 7–14 days of expiry |
-| Payment resolution | Support + email | Users with recent payment failures |
-| Friction reduction | UX / product flow | Users dropping off at renewal step |
-| Human-assisted retention | Support team | High-LTV users in top decile of risk |
-
-### Experimental Validation *(AI Product Lens)*
-
-Churn models predict *who will churn* — not *who will respond to intervention*. Without a control group, measured ROI conflates natural churn with model-driven saves. The correct validation approach:
-
-1. Score all subscribers monthly
-2. Select the top-K highest-risk users
-3. Randomly split into: **50% Treatment** (retention campaign) / **50% Control** (no contact)
-4. Measure churn rate difference between groups after 30 days
-
-This isolates true incremental lift:
-
-```
-True incremental ROI  =  (churn_rate_control − churn_rate_treatment)
-                       × N_treatment
-                       × LTV
-                       − intervention_cost
-```
-
-This is the correct metric — it separates predictive correlation from **causal retention uplift**.
-
----
-
-## Tech Stack
+## 11. Tech Stack
 
 | Category | Libraries |
 |---|---|
@@ -522,16 +582,24 @@ This is the correct metric — it separates predictive correlation from **causal
 | **Experiment tracking** | MLflow |
 | **Explainability** | SHAP |
 | **Serving** | FastAPI, uvicorn |
+| **Cloud / MLOps** | AWS SageMaker (Training Jobs, Model Registry), boto3, S3 |
 | **Dashboard** | Streamlit *(planned)* |
 | **Visualization** | Matplotlib, Seaborn |
 | **Utilities** | scikit-learn, joblib, tqdm, fsspec |
 
 ---
 
-## Repository Structure
+## 12. Repository Structure
 
 ```
 ai-customer-retention-mlops/
+|
+|-- cloud/
+|   `-- sagemaker/                 # SageMaker cloud training validation
+|       |-- train.py               # Training script (runs inside container)
+|       |-- launch_training_job.py # Job submission (runs locally)
+|       |-- register_model.py      # Model Registry registration
+|       `-- requirements.txt       # Container runtime dependencies
 |
 |-- data/                           # Raw, processed, sample data  (large files gitignored)
 |-- notebooks/                      # Exploratory analysis
@@ -583,15 +651,15 @@ ai-customer-retention-mlops/
 
 ---
 
-## Quick Start
+## 13. Quick Start
 
-### Install
+### 13.1 Install
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### Run the data pipeline
+### 13.2 Run the data pipeline
 
 ```bash
 python src/data/01_convert_to_parquet.py
@@ -601,7 +669,7 @@ python src/data/04_aggregate_user_logs.py
 python src/data/05_build_model_table.py
 ```
 
-### Train the champion model (with MLflow tracking)
+### 13.3 Train the champion model (with MLflow tracking)
 
 ```bash
 python -m src.models.13_train_champion_lgbm_mlflow
@@ -609,33 +677,33 @@ python -m src.models.13_train_champion_lgbm_mlflow
 
 Logs params, metrics, and all artifacts to the `kkbox_churn` MLflow experiment automatically.
 
-### View experiments in MLflow UI
+### 13.4 View experiments in MLflow UI
 
 ```bash
 mlflow ui
 # Open: http://localhost:5000
 ```
 
-### Score validation set
+### 13.5 Score validation set
 
 ```bash
 python src/models/14_score_valid_champion.py
 ```
 
-### Run threshold sweep & generate plots
+### 13.6 Run threshold sweep & generate plots
 
 ```bash
 python src/evaluation/threshold_optimization.py
 ```
 
-### Run SHAP explainability analysis
+### 13.7 Run SHAP explainability analysis
 
 ```bash
 python -m src.evaluation.shap_analysis
 # Outputs: reports/shap_summary.png, reports/top_features.csv
 ```
 
-### Launch the FastAPI inference service
+### 13.8 Launch the FastAPI inference service
 
 ```bash
 uvicorn src.serving.api:app --reload
@@ -643,13 +711,13 @@ uvicorn src.serving.api:app --reload
 # Endpoints: GET /health  |  POST /predict  |  POST /predict_batch
 ```
 
-### Generate leaderboard
+### 13.9 Generate leaderboard
 
 ```bash
 python scripts/generate_leaderboard.py
 ```
 
-### Use the policy engine directly
+### 13.10 Use the policy engine directly
 
 ```python
 from src.serving.policy import apply_threshold, apply_topk_to_batch
@@ -664,25 +732,38 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 
 ---
 
-## Project Status
+## 14. Project Status & Next Steps
+
+### 14.1 Current Status
 
 | Component | Status |
 |---|---|
-| Data pipeline (ETL, feature engineering) | Complete |
-| Model training — 12 experiments | Complete |
-| MLflow tracking + leaderboard | Complete |
-| Champion model selection | Complete |
-| Threshold optimization & ROI sweep | Complete |
-| Decision policy engine | Complete |
-| FastAPI inference service | Complete |
-| SHAP explainability layer | Complete |
-| Streamlit executive dashboard | Planned |
-| Dockerfile / docker-compose | Planned |
-| End-to-end pipeline orchestrator | Planned |
+| Data pipeline (ETL, feature engineering) | ✅ Complete |
+| Model training — 12 experiments | ✅ Complete |
+| MLflow tracking + leaderboard | ✅ Complete |
+| Champion model selection | ✅ Complete |
+| Threshold optimization & ROI sweep | ✅ Complete |
+| Decision policy engine | ✅ Complete |
+| FastAPI inference service | ✅ Complete |
+| SHAP explainability layer | ✅ Complete |
+| Cloud training validation (SageMaker) | ✅ Complete |
+| Monitoring implementation | 📋 Designed (Section 10) |
+| Streamlit executive dashboard | 📋 Planned |
+| Dockerfile / docker-compose | 📋 Planned |
+| End-to-end pipeline orchestrator | 📋 Planned |
+
+### 14.2 Next Steps
+
+| Priority | Item | Impact |
+|---:|---|---|
+| 1 | **Streamlit executive dashboard** — interactive threshold / ROI scenario explorer for non-technical stakeholders | Bridges the gap between model output and business decision-making |
+| 2 | **Dockerized deployment** — containerize FastAPI + model artifacts for reproducible deployment | Makes the serving layer portable and CI/CD-ready |
+| 3 | **Automated retraining pipeline** — scheduled retrain on latest data window with MLflow-gated promotion | Closes the loop from monitoring signals to model refresh |
+| 4 | **A/B test simulation** — implement the treatment/control framework described in Section 6.5 to estimate causal uplift | Moves from predictive accuracy to true incremental business impact |
 
 ---
 
-## What This Demonstrates
+## 15. What This Demonstrates
 
 ### For Machine Learning Engineer Roles
 
@@ -703,6 +784,8 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 - Split method audit trail: `cutoff_policy` records what actually ran, not what was configured — production-grade reproducibility thinking
 - SHAP explainability pipeline (`src/evaluation/shap_analysis.py`) producing beeswarm plots and ranked feature CSV — model auditing built in, not bolted on
 - FastAPI serving layer with two policy modes, Pydantic contract enforcement, and CSV batch upload — separation of serving logic from model training
+- AWS SageMaker Training Job with Script Mode — same champion config, managed infrastructure, S3 artifact packaging
+- SageMaker Model Registry integration — versioned, approval-gated model packages
 - Modular `src/` layout designed for CI/CD integration
 - Numbered ETL scripts (01→07) for explicit dependency ordering
 - DuckDB for large-scale in-process SQL aggregation on raw files
@@ -714,49 +797,9 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 - Budget-bounded top-K targeting for predictable monthly operational load
 - Scenario modeling across intervention types: outreach vs. incentive offers
 - Business assumptions documented separately — not baked silently into model training
+- Monitoring plan with label-delay awareness and retraining triggers
 - Executive dashboard for threshold and ROI scenario exploration *(planned)*
 
-## Model registry & lifecycle (lightweight governance)
+---
 
-This project uses a lightweight model lifecycle to keep experiments reproducible and make “champion” decisions auditable—without standing up a hosted model registry.
-
-### Model versioning (v1, v2, …)
-
-Models are versioned as **Model Releases**:
-- **v1** — current champion LightGBM model (ROI-optimized threshold policy)
-- **v2** — next champion iteration (e.g., new features, improved calibration, or updated ROI assumptions)
-
-Each release is tied to:
-- **Git commit SHA** (exact code used)
-- **Data version identifier** (dataset build / snapshot + fingerprint)
-- **Evaluation bundle** (metrics + decision policy + ROI assumptions)
-
-### What “approval” means (simulated gate)
-
-A candidate model is marked **approved** (eligible for champion promotion) if it passes offline gates such as:
-- **Predictive quality**: PR-AUC / ROC-AUC do not regress beyond tolerance
-- **Business value**: ROI improves under the documented assumptions
-- **Decision policy**: the targeting rule is explicitly recorded (threshold or top-K)
-
-The process is intentionally simple and documented in `docs/model_registry.md`.
-
-### What metadata is logged for each release
-
-For every model release we capture:
-
-- **Data version**
-  - snapshot identifier (date range / cutoff policy)
-  - fingerprint (hash) of the training table
-- **Code version**
-  - Git commit SHA
-- **Metrics**
-  - ROC-AUC, PR-AUC
-  - threshold-based precision/recall/F1 (when applicable)
-  - precision@K / recall@K (for operational top-K scenarios)
-- **Decision policy + ROI assumptions**
-  - chosen policy (e.g., ROI-optimal threshold = 0.68) and alternatives (e.g., top-K)
-  - ROI assumptions (e.g., churn_cost, intervention_cost, save_rate, ops_budget)
-
-See:
-- `docs/model_registry.md` for lifecycle + promotion steps
-- `reports/champion_metadata.json` for the current champion’s full metadata bundle*Built on the [KKBox Churn Prediction](https://www.kaggle.com/competitions/kkbox-churn-prediction-challenge) dataset.*
+*Built on the [KKBox Churn Prediction](https://www.kaggle.com/competitions/kkbox-churn-prediction-challenge) dataset.*

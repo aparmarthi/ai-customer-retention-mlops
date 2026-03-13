@@ -151,7 +151,12 @@ def main():
         print(f"After subset_fraction={args.subset_fraction}, shape={df.shape}")
 
     # 3) Ensure time column is datetime
-    df[args.time_col] = pd.to_datetime(df[args.time_col], errors="coerce")
+    #    KKBox dates are stored as integers (e.g. 20170228 = Feb 28, 2017).
+    #    Without explicit format, pd.to_datetime treats ints as nanoseconds
+    #    from epoch, giving 1970-01-01 — breaking the chronological split.
+    df[args.time_col] = pd.to_datetime(
+        df[args.time_col].astype(str), format="%Y%m%d", errors="coerce"
+    )
     df = df.dropna(subset=[args.time_col])
 
     # 4) Deterministic chronological split

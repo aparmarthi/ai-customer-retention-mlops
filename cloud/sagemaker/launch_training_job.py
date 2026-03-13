@@ -1,5 +1,7 @@
 import argparse
 from pathlib import Path
+import json
+import time
 
 import boto3
 from sagemaker.core.common_utils import name_from_base
@@ -73,6 +75,7 @@ def main():
         source_code=SourceCode(
             source_dir=_SCRIPT_DIR,
             entry_script="train.py",
+            requirements="requirements.txt",
         ),
         role=args.role_arn,
         base_job_name="kkbox-churn-champion",
@@ -101,11 +104,56 @@ def main():
         data_source=args.train_s3_uri,
     )
 
-    trainer.train(
-        input_data_config=[train_data],
-        wait=args.wait,
-        logs=args.wait,
-    )
+    # #region agent log
+    with open("debug-cbacb8.log", "a") as _f:
+        _f.write(
+            json.dumps(
+                {
+                    "sessionId": "cbacb8",
+                    "runId": "pre-fix",
+                    "hypothesisId": "H1",
+                    "location": "cloud/sagemaker/launch_training_job.py:105",
+                    "message": "About to call trainer.train",
+                    "data": {
+                        "instance_type": args.instance_type,
+                        "instance_count": args.instance_count,
+                        "region": args.region,
+                    },
+                    "timestamp": int(time.time() * 1000),
+                }
+            )
+            + "\n"
+        )
+    # #endregion agent log
+
+    try:
+        trainer.train(
+            input_data_config=[train_data],
+            wait=args.wait,
+            logs=args.wait,
+        )
+    except Exception as e:
+        # #region agent log
+        with open("debug-cbacb8.log", "a") as _f:
+            _f.write(
+                json.dumps(
+                    {
+                        "sessionId": "cbacb8",
+                        "runId": "pre-fix",
+                        "hypothesisId": "H1",
+                        "location": "cloud/sagemaker/launch_training_job.py:113",
+                        "message": "trainer.train raised exception",
+                        "data": {
+                            "error_type": type(e).__name__,
+                            "error_str": str(e),
+                        },
+                        "timestamp": int(time.time() * 1000),
+                    }
+                )
+                + "\n"
+            )
+        # #endregion agent log
+        raise
 
     print("\nTraining job submitted successfully.")
     print(f"Training job name: {job_name}")

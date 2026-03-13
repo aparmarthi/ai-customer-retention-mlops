@@ -1,6 +1,7 @@
 import argparse
 
 import boto3
+from botocore.exceptions import ClientError
 from sagemaker.core.image_uris import retrieve
 
 
@@ -19,7 +20,9 @@ def ensure_model_package_group(sm_client, group_name, description):
     try:
         sm_client.describe_model_package_group(ModelPackageGroupName=group_name)
         print(f"Model package group already exists: {group_name}")
-    except sm_client.exceptions.ResourceNotFound:
+    except ClientError as e:
+        if e.response["Error"]["Code"] not in ("ValidationException", "ResourceNotFound"):
+            raise
         print(f"Creating model package group: {group_name}")
         sm_client.create_model_package_group(
             ModelPackageGroupName=group_name,
