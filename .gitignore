@@ -117,7 +117,10 @@ duckdb_tmp/
 # Trained model binaries (INTENTIONAL)
 ########################################
 # Keep training *code*, ignore heavy artifacts
-artifacts/
+artifacts/**
+!artifacts/champion/
+artifacts/champion/**
+!artifacts/champion/notes.md
 checkpoints/
 mlruns/
 wandb/

@@ -4,7 +4,7 @@
 
 **Problem:** KKBox loses subscribers every month with no systematic way to predict who will leave or prioritize retention spend.
 
-**Solution:** ML-driven churn prediction platform that ranks every subscriber by exit risk, targets the top 10,000 highest-risk users monthly, and projects $12,200–$17,600 net ROI per scoring cycle under conservative assumptions.
+**Solution:** ML-driven churn prediction platform that ranks every subscriber by exit risk, targets the top 10,000 highest-risk users monthly, and projects $12,200–$17,666 net ROI per scoring cycle under conservative assumptions.
 
 **Key result:** The model concentrates 75% of actual churners into the top 10,000 contacts — a **3x lift** over random targeting — while keeping outreach volume predictable and budget-bounded.
 

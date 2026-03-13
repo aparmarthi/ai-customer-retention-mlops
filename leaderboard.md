@@ -22,10 +22,10 @@ The champion uses a **time-based holdout** (Feb 2017), not the random split abov
 | ROC-AUC | 0.9660 |
 | PR-AUC | 0.5392 |
 | F1 (at 0.5) | 0.3678 |
-| P@5k | 0.2790 |
-| P@10k | 0.1790 |
-| R@5k | 0.5813 |
-| R@10k | 0.7452 |
+| P@5k | 0.2690 |
+| P@10k | 0.1801 |
+| R@5k | 0.5600 |
+| R@10k | 0.7498 |
 | FLAML search time | ~30 min |
 
 ## Champion selection criteria

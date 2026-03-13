@@ -92,7 +92,7 @@ Lower time-based numbers are more honest — random splits leak temporal pattern
 
 ### 2.3 Data Pipeline
 
-Seven numbered, independently runnable scripts — no notebook dependencies:
+Eight numbered, independently runnable scripts — no notebook dependencies:
 
 | Script | Purpose |
 |---|---|
@@ -103,6 +103,7 @@ Seven numbered, independently runnable scripts — no notebook dependencies:
 | `05_build_model_table.py` | Join all feature tables into the ML-ready model table |
 | `06_create_sample_data.py` | Lightweight extracts for dev / CI testing |
 | `07_create_derived_tables.py` | Derived feature tables (recency, tenure, frequency) |
+| `08_data_subset_for_sagemaker.py` | Create cost-controlled subset for SageMaker training |
 
 **Key engineering decisions:**
 - Strict chronological ordering prevents future-signal leakage
@@ -203,7 +204,7 @@ Target the **top-10,000 highest-risk subscribers** by predicted probability, eac
 |---|---:|
 | Contacts per cycle | 10,000 (fixed) |
 | Precision | 18.0% |
-| Recall | 74.9% |
+| Recall | 75.0% |
 | Equiv. threshold | ~0.21 |
 
 **Why top-K is preferred operationally:**
@@ -605,8 +606,11 @@ ai-customer-retention-mlops/
 |-- notebooks/                      # Exploratory analysis
 |-- reports/                        # Business assumptions, threshold sweep CSV, plots
 |-- scripts/
-|   `-- generate_leaderboard.py
+|   |-- generate_leaderboard.py
+|   `-- generate_architecture_diagram.py
 |-- docs/
+|   |-- executive_summary.md         # AI PM narrative: problem, impact, rollout, A/B test
+|   |-- architecture.png             # System architecture diagram
 |   `-- KKBox Churn Prediction Capstone Project Proposal.pdf
 |-- artifacts/
 |   `-- champion/                   # Frozen model bundle
@@ -621,7 +625,7 @@ ai-customer-retention-mlops/
 |       `-- notes.md
 |
 |-- src/
-|   |-- data/                       # ETL pipeline  (01 --> 07 numbered scripts)
+|   |-- data/                       # ETL pipeline  (01 --> 08 numbered scripts)
 |   |-- models/                     # 01_baseline --> 12_automl_flaml + 13/14/15 champion scripts
 |   |-- evaluation/
 |   |   |-- threshold_optimization.py
@@ -629,23 +633,19 @@ ai-customer-retention-mlops/
 |   |-- serving/
 |   |   |-- api.py                  # FastAPI inference service  (GET /health, POST /predict, POST /predict_batch)
 |   |   |-- policy.py               # PolicyDecision engine  (top-K + threshold)
+|   |   |-- app_streamlit.py        # Streamlit executive dashboard
 |   |   `-- test_policy.py
-|   |-- pipelines/
-|   |   `-- run_pipeline.py         # End-to-end orchestrator  [planned]
-|   |-- deployment/
-|   |   |-- app.py                  # [planned]
-|   |   |-- ltv_roi.py              # LTV / ROI serving helper  [planned]
-|   |   `-- Dockerfile              # [planned]
-|   |-- ui/
-|   |   `-- streamlit_app.py        # Executive analytics dashboard  [planned]
 |   `-- utils/
-|       |-- config.py
+|       |-- mlflow_utils.py          # Safe MLflow logging (nested flatten, artifact handling)
 |       `-- run_logger.py
 |
 |-- leaderboard.md
 |-- requirements.txt
 |-- requirements-dev.txt
-|-- docker_compose.yml
+|-- Dockerfile                        # Production container for FastAPI serving
+|-- requirements-serve.txt            # Minimal serving dependencies
+|-- render.yaml                       # Render.com deployment config
+|-- LICENSE
 `-- README.md
 ```
 
@@ -748,16 +748,16 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 | SHAP explainability layer | ✅ Complete |
 | Cloud training validation (SageMaker) | ✅ Complete |
 | Monitoring implementation | 📋 Designed (Section 10) |
-| Streamlit executive dashboard | 📋 Planned |
-| Dockerfile / docker-compose | 📋 Planned |
+| Streamlit executive dashboard | 🔧 In progress (`src/serving/app_streamlit.py`) |
+| Dockerfile + cloud deployment | ✅ Complete (`Dockerfile`, `render.yaml`) |
 | End-to-end pipeline orchestrator | 📋 Planned |
 
 ### 14.2 Next Steps
 
 | Priority | Item | Impact |
 |---:|---|---|
-| 1 | **Streamlit executive dashboard** — interactive threshold / ROI scenario explorer for non-technical stakeholders | Bridges the gap between model output and business decision-making |
-| 2 | **Dockerized deployment** — containerize FastAPI + model artifacts for reproducible deployment | Makes the serving layer portable and CI/CD-ready |
+| 1 | **Streamlit executive dashboard** — finalize interactive threshold / ROI scenario explorer for non-technical stakeholders | Bridges the gap between model output and business decision-making |
+| 2 | **CI/CD pipeline hardening** — expand GitHub Actions workflow with automated testing and staging gates | Adds production-grade deployment automation |
 | 3 | **Automated retraining pipeline** — scheduled retrain on latest data window with MLflow-gated promotion | Closes the loop from monitoring signals to model refresh |
 | 4 | **A/B test simulation** — implement the treatment/control framework described in Section 6.5 to estimate causal uplift | Moves from predictive accuracy to true incremental business impact |
 
@@ -787,7 +787,7 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 - AWS SageMaker Training Job with Script Mode — same champion config, managed infrastructure, S3 artifact packaging
 - SageMaker Model Registry integration — versioned, approval-gated model packages
 - Modular `src/` layout designed for CI/CD integration
-- Numbered ETL scripts (01→07) for explicit dependency ordering
+- Numbered ETL scripts (01→08) for explicit dependency ordering
 - DuckDB for large-scale in-process SQL aggregation on raw files
 
 ### For Business / Analytics / Product Roles

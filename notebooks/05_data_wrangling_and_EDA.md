@@ -231,5 +231,3 @@ A model-ready per-user table can now be constructed confidently
 The groundwork is laid for time-aware churn modeling and MLOps-style pipelines
 
 This completes the Data Wrangling and EDA phase and prepares the project for Step 6: Feature Engineering and Model Prototyping.
-
-What to submit (checklist)
