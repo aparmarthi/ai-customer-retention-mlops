@@ -1,0 +1,23 @@
+{
+  "policy_name": "hybrid_topk_primary_roi_threshold_fallback",
+  "version": "v1",
+  "primary_policy": {
+    "type": "top_k",
+    "k": 10000,
+    "notes": "Operational capacity driven. Each scoring cycle targets top K highest-risk users."
+  },
+  "secondary_policy": {
+    "type": "threshold",
+    "threshold": 0.68,
+    "selected_by": "roi_max",
+    "notes": "Cost-sensitive policy used when top-K is not applicable."
+  },
+  "validation_summary": {
+    "valid_rows": 193205,
+    "churn_rate": 0.0124,
+    "precision_at_k": 0.1801,
+    "recall_at_k": 0.7498,
+    "best_roi": 17666.0,
+    "best_roi_targeted": 1478
+  }
+}

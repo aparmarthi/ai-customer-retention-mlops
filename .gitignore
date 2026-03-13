@@ -121,14 +121,22 @@ artifacts/**
 !artifacts/champion/
 artifacts/champion/**
 !artifacts/champion/notes.md
+!artifacts/champion/model.pkl
+!artifacts/champion/feature_list.json
+!artifacts/champion/categorical_cols.json
+!artifacts/champion/threshold.json
+!artifacts/champion/metrics.json
+!artifacts/champion/roi_policy.json
+!artifacts/champion/deployment_policy.json
 checkpoints/
 mlruns/
 wandb/
 lightning_logs/
 catboost_info/
 
-# Common serialized models
+# Common serialized models (except champion bundle for Streamlit Cloud)
 *.pkl
+!artifacts/champion/model.pkl
 *.joblib
 *.onnx
 *.pt

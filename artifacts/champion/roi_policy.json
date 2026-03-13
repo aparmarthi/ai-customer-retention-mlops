@@ -1,0 +1,34 @@
+{
+  "recommended_policy": "top_k",
+  "top_k": 10000,
+  "precision_at_k": 0.1801,
+  "recall_at_k": 0.7497918401332223,
+  "assumptions": {
+    "base_churn_cost": 120.0,
+    "intervention_cost": 5.0,
+    "save_rate_if_targeted": 0.2,
+    "target_budget_k": 10000
+  },
+  "best_threshold_by_roi": {
+    "threshold": 0.68,
+    "tp": 1044.0,
+    "fp": 434.0,
+    "fn": 1358.0,
+    "precision": 0.706359945872801,
+    "recall": 0.43463780183180684,
+    "f1": 0.5381443298969072,
+    "roi": 17666.0,
+    "n_targeted": 1478.0
+  },
+  "best_threshold_by_f1": {
+    "threshold": 0.7100000000000001,
+    "tp": 992.0,
+    "fp": 270.0,
+    "fn": 1410.0,
+    "precision": 0.786053882725832,
+    "recall": 0.41298917568692756,
+    "f1": 0.5414847161572052,
+    "roi": 17498.0,
+    "n_targeted": 1262.0
+  }
+}
