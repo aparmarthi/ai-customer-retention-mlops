@@ -49,11 +49,11 @@ An end-to-end ML platform — not just a model — that covers the full path fro
 
 ### Model performance on time-based holdout
 
-| Metric | Value | Why It Matters |
-|---|---:|---|
-| PR-AUC | 0.5392 | Ranking quality under 1.2% churn — the honest metric |
-| Recall @ top-10k | 75.0% | 3 out of 4 actual churners are in the contact list |
-| Precision @ top-10k | 18.0% | 3x concentration over random — every $1 of outreach works 3x harder |
+| Metric | Value | Lift | Why It Matters |
+|---|---:|---:|---|
+| PR-AUC | 0.5392 | **43.5x** vs base rate | Ranking quality under 1.2% churn — the honest metric |
+| Recall @ top-10k | 75.0% | — | 3 out of 4 actual churners are in the contact list |
+| Precision @ top-10k | 18.0% | **3x** vs overall base rate | Every $1 of outreach works 3x harder than random targeting |
 
 ---
 

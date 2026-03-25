@@ -55,16 +55,16 @@ This folder contains the **frozen "champion" churn model** and the minimal artif
 
 ## Champion Metrics (time-based holdout)
 
-| Metric | Value |
-|---|---:|
-| ROC-AUC | 0.9660 |
-| PR-AUC | **0.5392** |
-| F1 @ 0.5 | 0.3678 |
-| Precision @ top-5k | 0.2690 |
-| Precision @ top-10k | **0.1801** |
-| Recall @ top-10k | 0.7498 |
-| Recall @ top-20k | 0.9072 |
-| Validation churn rate | 1.24% |
+| Metric | Value | Lift |
+|---|---:|---:|
+| ROC-AUC | 0.9660 | **1.9x** vs random (0.50) |
+| PR-AUC | **0.5392** | **43.5x** vs base rate (1.24%) |
+| F1 @ 0.5 | 0.3678 | — |
+| Precision @ top-5k | 0.2690 | **21.7x** vs base rate |
+| Precision @ top-10k | **0.1801** | **14.5x** vs base rate |
+| Recall @ top-10k | 0.7498 | — |
+| Recall @ top-20k | 0.9072 | — |
+| Validation churn rate | 1.24% | — |
 
 ---
 

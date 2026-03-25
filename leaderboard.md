@@ -2,31 +2,33 @@
 
 Sorted by **PR-AUC (Average Precision)**, then ROC-AUC. Metrics are on the **valid split** (random 80/20 split used for all Phase 2-3 experiments).
 
-| Rank | Model | PR-AUC | ROC-AUC | F1 | Precision | Recall | Train Time | Notes |
-|---:|---|---:|---:|---:|---:|---:|---:|---|
-| 1 | LightGBM | 0.8887 | 0.9894 | 0.7845 | 0.6805 | 0.9260 | ~3 min | Baseline config, scale_pos_weight |
-| 2 | Ensemble (soft vote) | 0.8887 | 0.9894 | 0.7845 | 0.6805 | 0.9260 | — | Reduces to LightGBM (weight = 1.0) |
-| 3 | XGBoost (Train API) | 0.8771 | 0.9875 | — | — | — | ~2 min | Baseline XGBoost, no threshold tuning |
-| 4 | CatBoost | 0.8737 | 0.9865 | 0.7282 | 0.6002 | 0.9257 | ~3.7 min | GPU-accelerated, early stop (od_wait=200) |
-| 5 | FT-Transformer | 0.8214 | 0.9824 | 0.6825 | 0.5374 | 0.9350 | ~23 min | 4-layer transformer, AMP, GPU |
-| 6 | Random Forest | 0.7935 | 0.9782 | 0.5798 | 0.4188 | 0.9419 | ~5 min | One-hot encoding, balanced_subsample |
-| 7 | NODE | 0.7719 | 0.9737 | 0.5334 | 0.3717 | 0.9446 | ~11 min | 128 oblivious trees, depth 6, GPU |
-| 8 | TabNet | 0.5233 | 0.9085 | 0.3998 | 0.5671 | 0.3087 | ~32 min | 5 failed runs before convergence |
+| Rank | Model | PR-AUC | PR-AUC Lift | ROC-AUC | F1 | Precision | Recall | Train Time | Notes |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---|
+| 1 | LightGBM | 0.8887 | **14.3x** | 0.9894 | 0.7845 | 0.6805 | 0.9260 | ~3 min | Baseline config, scale_pos_weight |
+| 2 | Ensemble (soft vote) | 0.8887 | **14.3x** | 0.9894 | 0.7845 | 0.6805 | 0.9260 | — | Reduces to LightGBM (weight = 1.0) |
+| 3 | XGBoost (Train API) | 0.8771 | **14.1x** | 0.9875 | — | — | — | ~2 min | Baseline XGBoost, no threshold tuning |
+| 4 | CatBoost | 0.8737 | **14.1x** | 0.9865 | 0.7282 | 0.6002 | 0.9257 | ~3.7 min | GPU-accelerated, early stop (od_wait=200) |
+| 5 | FT-Transformer | 0.8214 | **13.2x** | 0.9824 | 0.6825 | 0.5374 | 0.9350 | ~23 min | 4-layer transformer, AMP, GPU |
+| 6 | Random Forest | 0.7935 | **12.8x** | 0.9782 | 0.5798 | 0.4188 | 0.9419 | ~5 min | One-hot encoding, balanced_subsample |
+| 7 | NODE | 0.7719 | **12.4x** | 0.9737 | 0.5334 | 0.3717 | 0.9446 | ~11 min | 128 oblivious trees, depth 6, GPU |
+| 8 | TabNet | 0.5233 | **8.4x** | 0.9085 | 0.3998 | 0.5671 | 0.3087 | ~32 min | 5 failed runs before convergence |
+
+> **Lift** = PR-AUC / baseline PR-AUC. Baseline PR-AUC ≈ class prevalence (~6.2% on random split). A 14.3x lift means the model ranks churners 14x better than random ordering.
 
 ### Champion (time-based holdout — different evaluation)
 
 The champion uses a **time-based holdout** (Feb 2017), not the random split above. These numbers are not directly comparable to the leaderboard — they are harder and more realistic.
 
-| Metric | Champion (FLAML AutoML — LightGBM) |
-|---|---:|
-| ROC-AUC | 0.9660 |
-| PR-AUC | 0.5392 |
-| F1 (at 0.5) | 0.3678 |
-| P@5k | 0.2690 |
-| P@10k | 0.1801 |
-| R@5k | 0.5600 |
-| R@10k | 0.7498 |
-| FLAML search time | ~30 min |
+| Metric | Champion (FLAML AutoML — LightGBM) | Lift |
+|---|---:|---:|
+| ROC-AUC | 0.9660 | **1.9x** vs random (0.50) |
+| PR-AUC | 0.5392 | **43.5x** vs base rate (1.24%) |
+| F1 (at 0.5) | 0.3678 | — |
+| P@5k | 0.2690 | **21.7x** vs base rate |
+| P@10k | 0.1801 | **14.5x** vs base rate |
+| R@5k | 0.5600 | — |
+| R@10k | 0.7498 | — |
+| FLAML search time | ~30 min | — |
 
 ## Champion selection criteria
 

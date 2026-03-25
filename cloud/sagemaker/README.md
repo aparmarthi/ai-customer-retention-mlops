@@ -59,11 +59,11 @@ This is intentionally a minimal validation run. In a production setting, SageMak
 
 ## Local Champion vs. SageMaker Metrics
 
-| Metric | Local Champion | SageMaker Run |
-|---|---:|---:|
-| ROC-AUC | **0.9660** | 0.9484 |
-| PR-AUC | **0.5392** | 0.4707 |
-| F1 | 0.3678 | **0.4658** |
+| Metric | Local Champion | Lift (Local) | SageMaker Run | Lift (SageMaker) |
+|---|---:|---:|---:|---:|
+| ROC-AUC | **0.9660** | **1.9x** vs random | 0.9484 | **1.9x** vs random |
+| PR-AUC | **0.5392** | **43.5x** vs base rate | 0.4707 | **38.0x** vs base rate |
+| F1 | 0.3678 | — | **0.4658** | — |
 
 **Key observations:**
 
