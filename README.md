@@ -17,8 +17,8 @@ This project goes beyond model accuracy. It demonstrates full-stack ML system de
 | Metric | Value | Lift |
 |---|---:|---:|
 | ROC-AUC (time-based holdout) | **0.9660** | **1.9x** vs random (0.50) |
-| PR-AUC | **0.5392** | **8.7x** vs base rate (6.2%) |
-| Precision @ top-10k contacts | **18.0%** | **3x** vs base rate |
+| PR-AUC | **0.5392** | **43.5x** vs base rate (1.24% holdout) |
+| Precision @ top-10k contacts | **18.0%** | **3x** vs overall churn rate |
 | Recall @ top-10k contacts | **75.0%** | — |
 | ROI-optimal policy net ROI | **$17,666** (1,478 users targeted) | — |
 | Outreach policy net savings | **~$12,200** (10,000 users targeted) | — |
