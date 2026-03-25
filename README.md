@@ -603,7 +603,9 @@ ai-customer-retention-mlops/
 |       `-- requirements.txt       # Container runtime dependencies
 |
 |-- data/                           # Raw, processed, sample data  (large files gitignored)
-|-- notebooks/                      # Exploratory analysis
+|-- notebooks/
+|   |-- 08_scaling_prototype.ipynb  # Step 8: Scaling the prototype to full dataset (31 GB)
+|   |-- 01-04_*_eda.py             # Exploratory analysis scripts
 |-- reports/                        # Business assumptions, threshold sweep CSV, plots
 |-- scripts/
 |   |-- generate_leaderboard.py
