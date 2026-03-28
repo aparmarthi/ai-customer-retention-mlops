@@ -23,6 +23,20 @@ This project goes beyond model accuracy. It demonstrates full-stack ML system de
 | ROI-optimal policy net ROI | **$17,666** (1,478 users targeted) | — |
 | Outreach policy net savings | **~$12,200** (10,000 users targeted) | — |
 
+### Scaling: 31 GB to Production
+
+The full ~31 GB KKBox dataset is processed end-to-end — not sampled, not approximated. Every scaling decision is documented with trade-offs and a web-scale migration path.
+
+| Stage | Size | Tool | Why |
+|---|---:|---|---|
+| Raw CSVs | 31 GB | DuckDB streaming | pandas would OOM on 29 GB `user_logs.csv` |
+| Parquet (ZSTD) | ~10 GB | DuckDB + column pruning | 3.4x compression; read only the columns you need |
+| Aggregated features | ~500 MB | DuckDB 2-stage SQL | 13x reduction via daily pre-aggregation |
+| ML-ready table | 118 MB | pandas joins | Small enough post-agg; pandas ecosystem wins |
+| Champion model training | ~3 min | LightGBM + FLAML | Best PR-AUC across 12 models, 8x faster than deep learning |
+
+> **Deep dive:** [`notebooks/08_scaling_prototype.ipynb`](notebooks/08_scaling_prototype.ipynb) — full trade-off analysis, DuckDB vs Spark rationale, and architecture blueprint for scaling to billions of rows.
+
 ---
 
 ## Table of Contents
