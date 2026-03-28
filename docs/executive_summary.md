@@ -28,7 +28,7 @@ An end-to-end ML platform — not just a model — that covers the full path fro
 
 | Layer | What It Does |
 |---|---|
-| **Data pipeline** | 7 ETL scripts process ~28 GB of raw logs into ML-ready features |
+| **Data pipeline** | 7 ETL scripts process ~31 GB of raw logs into ML-ready features |
 | **Model training** | 12 architectures evaluated; FLAML AutoML LightGBM selected as champion |
 | **Decision policy** | Hybrid engine: top-K for operations, ROI-optimal threshold for cost-sensitive contexts |
 | **ROI simulation** | Connects model precision to dollar outcomes under configurable assumptions |

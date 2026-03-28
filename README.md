@@ -6,7 +6,7 @@
 ![FastAPI](https://img.shields.io/badge/Serving-FastAPI-009688?logo=fastapi&logoColor=white)
 ![SageMaker](https://img.shields.io/badge/Cloud-SageMaker-FF9900?logo=amazonaws&logoColor=white)
 
-> End-to-end ML platform built on **~28 GB of real KKBox subscription data** — from raw logs to a production-grade decision policy. Predicts subscriber churn, optimizes intervention targeting, and simulates measurable business ROI.
+> End-to-end ML platform built on **~31 GB of real KKBox subscription data** — from raw logs to a production-grade decision policy. Predicts subscriber churn, optimizes intervention targeting, and simulates measurable business ROI.
 
 This project goes beyond model accuracy. It demonstrates full-stack ML system design: scalable feature engineering, experiment governance, two-policy decision engine, and ROI-aligned threshold optimization — mirroring real MLE + MLOps + AI Product workflows.
 
@@ -36,12 +36,13 @@ This project goes beyond model accuracy. It demonstrates full-stack ML system de
 7. [Serving: FastAPI Inference API](#7-serving-fastapi-inference-api)
 8. [Experiment Tracking: MLflow](#8-experiment-tracking-mlflow)
 9. [Cloud Validation: AWS SageMaker](#9-cloud-validation-aws-sagemaker)
-10. [Monitoring Plan](#10-monitoring-plan)
-11. [Tech Stack](#11-tech-stack)
-12. [Repository Structure](#12-repository-structure)
-13. [Quick Start](#13-quick-start)
-14. [Project Status & Next Steps](#14-project-status--next-steps)
-15. [What This Demonstrates](#15-what-this-demonstrates)
+10. [Scaling: Prototype to Production](#10-scaling-prototype-to-production)
+11. [Monitoring Plan](#11-monitoring-plan)
+12. [Tech Stack](#12-tech-stack)
+13. [Repository Structure](#13-repository-structure)
+14. [Quick Start](#14-quick-start)
+15. [Project Status & Next Steps](#15-project-status--next-steps)
+16. [What This Demonstrates](#16-what-this-demonstrates)
 
 ---
 
@@ -69,7 +70,7 @@ Traditional ML projects optimize ROC-AUC. This system optimizes **business ROI**
 
 | Property | Value |
 |---|---:|
-| Raw size | ~28 GB |
+| Raw size | ~31 GB |
 | Processed model table | ~1M+ rows |
 | Validation set | 193,205 rows |
 | Churn rate (full dataset) | ~6% |
@@ -107,7 +108,7 @@ Eight numbered, independently runnable scripts — no notebook dependencies:
 
 **Key engineering decisions:**
 - Strict chronological ordering prevents future-signal leakage
-- Memory-aware processing for >28 GB raw files
+- Memory-aware processing for >31 GB raw files
 - DuckDB used for large-scale in-process SQL aggregation
 - All transformations are scriptable and reproducible
 
@@ -535,11 +536,78 @@ register_model.py  ───────────────►  SageMaker M
 
 ---
 
-## 10. Monitoring Plan
+## 10. Scaling: Prototype to Production
+
+The complete ~31 GB KKBox dataset was processed end-to-end — not sampled, not approximated. This section documents the scaling decisions, trade-offs, and the architecture blueprint for web-scale deployment.
+
+Full walkthrough with executable code: [`notebooks/08_scaling_prototype.ipynb`](notebooks/08_scaling_prototype.ipynb)
+
+### 10.1 The Data Funnel
+
+| Stage | Size | Tool | Why This Tool |
+|---|---:|---|---|
+| Raw CSVs | 31 GB | DuckDB streaming | pandas would OOM on 29 GB `user_logs.csv` |
+| Parquet (compressed) | ~10 GB | DuckDB + ZSTD | 3.4x compression; column pruning for fast reads |
+| Aggregated features | ~500 MB | DuckDB 2-stage SQL | 13x intermediate reduction via daily pre-agg |
+| ML-ready model table | 118 MB | pandas joins | Small enough post-aggregation; pandas ecosystem wins |
+| Trained model | ~3 min | LightGBM + FLAML | Fastest and best-performing across 12 architectures |
+
+### 10.2 Key Scaling Decisions & Trade-offs
+
+| Decision | Chose | Over | Why |
+|---|---|---|---|
+| **DuckDB over Spark** | Zero-config, single-process SQL | Distributed cluster | Spark requires cluster overhead; DuckDB saturates local I/O first |
+| **File-backed DuckDB** | Spill-to-disk safety | In-memory mode | In-memory DuckDB crashed on Windows with 8.7 GB Parquet |
+| **2-stage aggregation** | Daily pre-agg → user rollup | Single GROUP BY | Single-stage on 400M rows exceeded memory budget |
+| **Parquet + ZSTD** | Better compression, column pruning | CSV / Snappy | Output stored long-term; read speed is what matters |
+| **LightGBM over deep learning** | 3 min train, best PR-AUC | FT-Transformer (23 min) | Neural nets scored worse on every metric and cost 8x more time |
+
+### 10.3 Web-Scale Architecture Blueprint
+
+Every component has a documented migration path from single-machine to distributed:
+
+```
+CURRENT (Single Machine)              WEB-SCALE (Distributed)
+════════════════════════              ══════════════════════════
+
+Storage:
+  Parquet on local disk       →→→       Delta Lake / Iceberg on S3
+  DuckDB file-backed          →→→       BigQuery / Redshift
+
+Compute:
+  DuckDB SQL + 2-stage agg    →→→       Spark SQL (same pattern, distributed)
+  pandas joins (post-agg)     →→→       Spark DataFrame joins
+
+Training:
+  LightGBM (local)            →→→       LightGBM distributed (Spark/Ray)
+  FLAML AutoML                →→→       SageMaker HP Tuning Jobs
+
+Serving:
+  FastAPI (single instance)   →→→       SageMaker Endpoints + API Gateway
+  Batch scoring (local)       →→→       SageMaker Batch Transform
+
+Orchestration:
+  Manual scripts (01→08)      →→→       Airflow / Step Functions DAGs
+```
+
+### 10.4 Scaling Projections
+
+| Scenario | Users | Raw Data | Model Table | Compute Engine |
+|---|---:|---:|---:|---|
+| **Current (KKBox)** | 1M | 31 GB | 118 MB | DuckDB (local) |
+| **10x** | 10M | 310 GB | 1.2 GB | DuckDB (local) |
+| **100x** | 100M | 3 TB | 12 GB | Spark SQL (cluster) |
+| **1000x (web-scale)** | 1B | 31 TB | 115 GB | BigQuery / Spark |
+
+The 2-stage aggregation pattern, Parquet columnar format, and LightGBM's histogram-based training all scale linearly — the architecture doesn't require redesign, only swapping the execution engine.
+
+---
+
+## 11. Monitoring Plan
 
 This section describes the monitoring strategy that would apply once the model serves live predictions. No live monitoring is deployed (there is no production endpoint), but the architecture is designed to support it.
 
-### 10.1 What to Monitor
+### 11.1 What to Monitor
 
 | Layer | Signal | Detection Method | Action |
 |---|---|---|---|
@@ -552,7 +620,7 @@ This section describes the monitoring strategy that would apply once the model s
 | **Business** | ROI tracking | Compare simulated ROI vs. actual campaign outcomes | Adjust cost assumptions or retrain if ROI underperforms projection by >30% |
 | **Infrastructure** | API latency / error rate | FastAPI middleware logging (p50, p95, p99 latency) | Scale or investigate if p95 > 500ms or error rate > 1% |
 
-### 10.2 Label Delay Problem
+### 11.2 Label Delay Problem
 
 Churn labels arrive with a ~30-day delay (a user churns at the end of their billing cycle). This means model performance metrics lag by one month. During that window, **input drift signals are the only early warning**.
 
@@ -561,7 +629,7 @@ Monitoring priority:
 2. **Delayed** (monthly, after labels arrive): Precision@K, recall, PR-AUC on the latest scored cohort
 3. **Periodic** (quarterly): full retrain evaluation against the latest 3-month window
 
-### 10.3 Retraining Triggers
+### 11.3 Retraining Triggers
 
 | Trigger | Condition | Response |
 |---|---|---|
@@ -572,7 +640,7 @@ Monitoring priority:
 
 ---
 
-## 11. Tech Stack
+## 12. Tech Stack
 
 | Category | Libraries |
 |---|---|
@@ -590,7 +658,7 @@ Monitoring priority:
 
 ---
 
-## 12. Repository Structure
+## 13. Repository Structure
 
 ```
 ai-customer-retention-mlops/
@@ -653,15 +721,15 @@ ai-customer-retention-mlops/
 
 ---
 
-## 13. Quick Start
+## 14. Quick Start
 
-### 13.1 Install
+### 14.1 Install
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 13.2 Run the data pipeline
+### 14.2 Run the data pipeline
 
 ```bash
 python src/data/01_convert_to_parquet.py
@@ -671,7 +739,7 @@ python src/data/04_aggregate_user_logs.py
 python src/data/05_build_model_table.py
 ```
 
-### 13.3 Train the champion model (with MLflow tracking)
+### 14.3 Train the champion model (with MLflow tracking)
 
 ```bash
 python -m src.models.13_train_champion_lgbm_mlflow
@@ -679,33 +747,33 @@ python -m src.models.13_train_champion_lgbm_mlflow
 
 Logs params, metrics, and all artifacts to the `kkbox_churn` MLflow experiment automatically.
 
-### 13.4 View experiments in MLflow UI
+### 14.4 View experiments in MLflow UI
 
 ```bash
 mlflow ui
 # Open: http://localhost:5000
 ```
 
-### 13.5 Score validation set
+### 14.5 Score validation set
 
 ```bash
 python src/models/14_score_valid_champion.py
 ```
 
-### 13.6 Run threshold sweep & generate plots
+### 14.6 Run threshold sweep & generate plots
 
 ```bash
 python src/evaluation/threshold_optimization.py
 ```
 
-### 13.7 Run SHAP explainability analysis
+### 14.7 Run SHAP explainability analysis
 
 ```bash
 python -m src.evaluation.shap_analysis
 # Outputs: reports/shap_summary.png, reports/top_features.csv
 ```
 
-### 13.8 Launch the FastAPI inference service
+### 14.8 Launch the FastAPI inference service
 
 ```bash
 uvicorn src.serving.api:app --reload
@@ -713,13 +781,13 @@ uvicorn src.serving.api:app --reload
 # Endpoints: GET /health  |  POST /predict  |  POST /predict_batch
 ```
 
-### 13.9 Generate leaderboard
+### 14.9 Generate leaderboard
 
 ```bash
 python scripts/generate_leaderboard.py
 ```
 
-### 13.10 Use the policy engine directly
+### 14.10 Use the policy engine directly
 
 ```python
 from src.serving.policy import apply_threshold, apply_topk_to_batch
@@ -734,9 +802,9 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 
 ---
 
-## 14. Project Status & Next Steps
+## 15. Project Status & Next Steps
 
-### 14.1 Current Status
+### 15.1 Current Status
 
 | Component | Status |
 |---|---|
@@ -749,12 +817,13 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 | FastAPI inference service | ✅ Complete |
 | SHAP explainability layer | ✅ Complete |
 | Cloud training validation (SageMaker) | ✅ Complete |
-| Monitoring implementation | 📋 Designed (Section 10) |
+| Scaling analysis & production blueprint | ✅ Complete ([notebook](notebooks/08_scaling_prototype.ipynb)) |
+| Monitoring implementation | 📋 Designed (Section 11) |
 | Streamlit executive dashboard | 🔧 In progress (`src/serving/app_streamlit.py`) |
 | Dockerfile + cloud deployment | ✅ Complete (`Dockerfile`, `render.yaml`) |
 | End-to-end pipeline orchestrator | 📋 Planned |
 
-### 14.2 Next Steps
+### 15.2 Next Steps
 
 | Priority | Item | Impact |
 |---:|---|---|
@@ -765,7 +834,7 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 
 ---
 
-## 15. What This Demonstrates
+## 16. What This Demonstrates
 
 ### For Machine Learning Engineer Roles
 
@@ -777,10 +846,12 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 - Dual-policy decision engine with documented trade-offs between coverage and efficiency
 - Production REST API (FastAPI + Pydantic) exposing both policies with full request/response contracts
 - SHAP explainability layer producing auditable feature contributions from a tree ensemble
+- **Scaling narrative:** 31 GB processed end-to-end with documented trade-offs at every layer — storage (Parquet), compute (DuckDB), training (LightGBM), cloud (SageMaker) — plus a web-scale architecture blueprint for billion-row migration
 
 ### For MLOps / Data Engineering Roles
 
 - Reproducible, script-driven data pipeline with clear stage separation — no notebook dependencies
+- **Scaling deep-dive** ([notebook](notebooks/08_scaling_prototype.ipynb)): 31 GB → 118 MB data funnel with 2-stage aggregation, DuckDB streaming SQL, memory-bounded processing, and documented decision trade-offs at every stage
 - Custom MLflow wrapper (`src/utils/mlflow_utils.py`) with nested param flattening, safe metric logging, and graceful artifact handling — not just a `mlflow.log_metric` call
 - Atomic run logging: model + scored validation data + downstream reports in one run, making every metric permanently traceable
 - Split method audit trail: `cutoff_policy` records what actually ran, not what was configured — production-grade reproducibility thinking
