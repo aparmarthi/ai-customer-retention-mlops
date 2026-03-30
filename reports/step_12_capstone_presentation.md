@@ -13,9 +13,8 @@
 Amey | ML Engineering Bootcamp Capstone
 
 Links:
-- GitHub: [github.com/your-username/ai-customer-retention-mlops]
-- Live API: [your-render-url.onrender.com/docs]
-- Dashboard: [your-streamlit-url.streamlit.app]
+- GitHub: [github.com/aparmarthi/ai-customer-retention-mlops]
+- Live Dashboard: [amey-churn-predictor.streamlit.app]
 
 ---
 
@@ -400,22 +399,15 @@ The 2-stage aggregation pattern, Parquet format, and LightGBM all scale linearly
 
 # Try It Yourself
 
-### API (Swagger UI)
-**[your-render-url.onrender.com/docs]**
-
-1. Click `POST /predict` --> "Try it out"
-2. Paste a feature record
-3. See churn probability + action label
-
-### Dashboard (Streamlit)
-**[your-streamlit-url.streamlit.app]**
+### Live Dashboard (Streamlit)
+**[amey-churn-predictor.streamlit.app]**
 
 1. Tab 1: Single prediction with JSON
 2. Tab 2: Upload CSV for batch scoring
 3. Tab 3: ROI simulator with interactive sliders
 
 ### GitHub Repository
-**[github.com/your-username/ai-customer-retention-mlops]**
+**[github.com/aparmarthi/ai-customer-retention-mlops]**
 
 ```bash
 # Run locally in one command:
@@ -445,9 +437,8 @@ docker compose up --build
 
 | Resource | Link |
 |---|---|
-| GitHub Repository | [github.com/your-username/ai-customer-retention-mlops] |
-| Live API (Swagger) | [your-render-url.onrender.com/docs] |
-| Streamlit Dashboard | [your-streamlit-url.streamlit.app] |
+| GitHub Repository | [github.com/aparmarthi/ai-customer-retention-mlops] |
+| Live Dashboard | [amey-churn-predictor.streamlit.app] |
 | Deployment Plan (Step 9) | `reports/step_09_deployment_plan.md` |
 | Architecture Doc (Step 10) | `reports/step_10_deployment_architecture.md` |
 | Scaling Notebook (Step 8) | `notebooks/08_scaling_prototype.ipynb` |

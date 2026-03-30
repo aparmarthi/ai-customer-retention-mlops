@@ -743,6 +743,9 @@ ai-customer-retention-mlops/
 pip install -r requirements.txt
 ```
 
+
+For Streamlit Community Cloud, deploy `src/serving/app_streamlit_cloud.py` and keep the app-specific dependency file at `src/serving/requirements.txt`. In Streamlit's "Advanced settings", choose Python `3.12` so packages such as `lightgbm` and `scikit-learn` install from prebuilt wheels instead of failing source builds on newer runtimes.
+
 ### 14.2 Run the data pipeline
 
 ```bash
@@ -797,15 +800,12 @@ uvicorn src.serving.api:app --reload
 # Endpoints: GET /health  |  POST /predict  |  POST /predict_batch
 ```
 
-**Option B — Live deployment (Render):**
+**Option B — Live deployment (Streamlit Community Cloud):**
 
-The API is deployed at: **https://ai-customer-retention-mlops.onrender.com/**
+The interactive dashboard is live at: **https://amey-churn-predictor.streamlit.app/**
 
-- Landing page: https://ai-customer-retention-mlops.onrender.com/
-- Interactive Swagger UI: https://ai-customer-retention-mlops.onrender.com/docs
-- Health check: https://ai-customer-retention-mlops.onrender.com/health
-
-> Note: The free-tier instance may take ~30 seconds to wake up on the first request.
+- Single prediction, batch scoring, and ROI simulator
+- No setup required — just visit the link
 
 **Option C — Docker (production, local):**
 
