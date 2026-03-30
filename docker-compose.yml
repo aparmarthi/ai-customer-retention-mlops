@@ -1,0 +1,33 @@
+# One-command startup for the churn prediction system.
+#
+#   docker compose up --build
+#
+# Access:
+#   API:        http://localhost:8000/docs  (Swagger UI)
+#   Health:     http://localhost:8000/health
+#   Streamlit:  http://localhost:8501
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  dashboard:
+    build: .
+    ports:
+      - "8501:8501"
+    environment:
+      - CHURN_API_URL=http://api:8000
+    command: streamlit run src/serving/app_streamlit.py --server.port=8501 --server.address=0.0.0.0
+    depends_on:
+      api:
+        condition: service_healthy

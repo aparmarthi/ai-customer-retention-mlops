@@ -20,16 +20,26 @@ Returns:
 
 from __future__ import annotations
 
+import io
+import json
+import logging
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-import io
-import json
 import joblib
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
+
+# ── logging ──────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+logger = logging.getLogger("churn_api")
 
 
 # ── paths ──────────────────────────────────────────────────────────────────────
@@ -109,18 +119,23 @@ def _startup_load() -> None:
 
     missing = [p for p in [MODEL_PATH, THRESHOLD_PATH, FEATURES_PATH] if not p.exists()]
     if missing:
+        logger.error("Missing required artifact(s): %s", missing)
         raise RuntimeError(f"Missing required artifact(s): {missing}")
 
     MODEL = joblib.load(MODEL_PATH)
+    logger.info("Loaded model from %s", MODEL_PATH)
 
     THRESH_DOC = _load_json(THRESHOLD_PATH)
     FEATURE_COLS = list(_load_json(FEATURES_PATH))
+    logger.info("Loaded %d features, default threshold=%.4f",
+                len(FEATURE_COLS), THRESH_DOC.get("roi_optimal", {}).get("threshold", 0.5))
 
     if CATEGORICAL_PATH.exists():
         CATEGORICAL_COLS = list(_load_json(CATEGORICAL_PATH))
+        logger.info("Loaded %d categorical columns", len(CATEGORICAL_COLS))
     else:
-        # Not fatal; we can still run with object->category inference
         CATEGORICAL_COLS = []
+        logger.warning("categorical_cols.json not found; falling back to dtype inference")
 
     if not FEATURE_COLS:
         raise RuntimeError("feature_list.json is empty; cannot serve without feature columns.")
@@ -129,6 +144,7 @@ def _startup_load() -> None:
 @app.on_event("startup")
 def on_startup():
     _startup_load()
+    logger.info("Churn API ready — model loaded, serving on /predict and /predict_batch")
 
 
 # ── feature shaping ───────────────────────────────────────────────────────────
@@ -200,6 +216,19 @@ def _apply_topk_policy(probas: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarr
     return labels, ranks
 
 
+# ── request logging middleware ────────────────────────────────────────────────
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start = time.time()
+    response = await call_next(request)
+    latency_ms = (time.time() - start) * 1000
+    logger.info(
+        "method=%s path=%s status=%d latency_ms=%.1f",
+        request.method, request.url.path, response.status_code, latency_ms,
+    )
+    return response
+
+
 # ── endpoints ────────────────────────────────────────────────────────────────
 @app.get("/health")
 def health() -> Dict[str, Any]:
@@ -232,8 +261,15 @@ def predict(req: PredictRequest) -> PredictResponse:
     threshold = float(req.threshold) if req.threshold is not None else _get_default_threshold()
 
     X = _to_feature_frame([req.record])
+    t0 = time.time()
     proba = float(_predict_proba(X)[0])
+    inference_ms = (time.time() - t0) * 1000
     label = int(_apply_threshold_policy(np.array([proba]), threshold)[0])
+
+    logger.info(
+        "predict n=1 proba=%.4f label=%d threshold=%.4f inference_ms=%.1f",
+        proba, label, threshold, inference_ms,
+    )
 
     return PredictResponse(
         churn_probability=proba,
@@ -290,7 +326,14 @@ async def predict_batch(
 
     # ── predict probabilities ────────────────────────────────────────────────
     X = _to_feature_frame(records)
+    t0 = time.time()
     probas = _predict_proba(X)
+    inference_ms = (time.time() - t0) * 1000
+
+    logger.info(
+        "predict_batch n=%d policy=%s mean_proba=%.4f inference_ms=%.1f",
+        len(probas), policy, float(probas.mean()), inference_ms,
+    )
 
     # ── apply policy ─────────────────────────────────────────────────────────
     items: List[BatchPredictItem] = []

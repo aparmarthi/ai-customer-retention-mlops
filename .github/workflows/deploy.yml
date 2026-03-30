@@ -25,8 +25,8 @@ jobs:
       - name: Install serving dependencies
         run: pip install -r requirements-serve.txt pytest
 
-      - name: Run policy unit tests
-        run: pytest src/serving/test_policy.py -v
+      - name: Run API and policy tests
+        run: pytest src/serving/test_api.py -v
 
   # ── 2. Build and push Docker image ──────────────────────────────────────────
   build:

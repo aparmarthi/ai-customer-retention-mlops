@@ -11,9 +11,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install OS deps needed by LightGBM and pandas
+# Install OS deps needed by LightGBM, pandas, and healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libgomp1 \
+        libgomp1 curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies first (cached layer — only rebuilds when requirements change)
@@ -29,6 +29,10 @@ RUN useradd --create-home appuser && chown -R appuser /app
 USER appuser
 
 EXPOSE 8000
+
+# Health check — lets Docker and orchestrators detect unresponsive containers
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
 
 # PORT env var is injected by Cloud Run and Render at runtime
 CMD ["sh", "-c", "uvicorn src.serving.api:app --host 0.0.0.0 --port ${PORT:-8000}"]

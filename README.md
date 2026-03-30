@@ -787,7 +787,9 @@ python -m src.evaluation.shap_analysis
 # Outputs: reports/shap_summary.png, reports/top_features.csv
 ```
 
-### 14.8 Launch the FastAPI inference service
+### 14.8 Launch the inference service
+
+**Option A — Local development:**
 
 ```bash
 uvicorn src.serving.api:app --reload
@@ -795,13 +797,36 @@ uvicorn src.serving.api:app --reload
 # Endpoints: GET /health  |  POST /predict  |  POST /predict_batch
 ```
 
-### 14.9 Generate leaderboard
+**Option B — Docker (production):**
+
+```bash
+docker compose up --build
+# API:       http://localhost:8000/docs   (Swagger UI)
+# Dashboard: http://localhost:8501        (Streamlit)
+# Health:    http://localhost:8000/health
+```
+
+**Option C — Docker (API only):**
+
+```bash
+docker build -t churn-api .
+docker run -p 8000:8000 churn-api
+```
+
+### 14.9 Run tests
+
+```bash
+pytest src/serving/test_api.py -v
+# 16 tests: health, single predict, batch CSV, edge cases
+```
+
+### 14.10 Generate leaderboard
 
 ```bash
 python scripts/generate_leaderboard.py
 ```
 
-### 14.10 Use the policy engine directly
+### 14.11 Use the policy engine directly
 
 ```python
 from src.serving.policy import apply_threshold, apply_topk_to_batch
@@ -832,9 +857,12 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 | SHAP explainability layer | ✅ Complete |
 | Cloud training validation (SageMaker) | ✅ Complete |
 | Scaling analysis & production blueprint | ✅ Complete ([notebook](notebooks/08_scaling_prototype.ipynb)) |
+| Structured API logging | ✅ Complete (request/response, latency, startup) |
+| API test suite (pytest) | ✅ Complete (16 tests: health, predict, batch, edge cases) |
+| Docker Compose (one-command startup) | ✅ Complete (`docker-compose.yml`) |
 | Monitoring implementation | 📋 Designed (Section 11) |
-| Streamlit executive dashboard | 🔧 In progress (`src/serving/app_streamlit.py`) |
-| Dockerfile + cloud deployment | ✅ Complete (`Dockerfile`, `render.yaml`) |
+| Streamlit executive dashboard | ✅ Complete (`src/serving/app_streamlit.py`) |
+| Dockerfile + cloud deployment | ✅ Complete (`Dockerfile`, `render.yaml`, HEALTHCHECK) |
 | End-to-end pipeline orchestrator | 📋 Planned |
 
 ### 15.2 Next Steps
