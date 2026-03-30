@@ -30,8 +30,8 @@ This project does **not** use a pre-made managed ML serving platform (e.g., Sage
 | **Inference API** | Custom FastAPI service with `/predict`, `/predict_batch`, `/health` endpoints | SageMaker Endpoints, Vertex AI Prediction |
 | **Decision Policy Engine** | ROI-optimal threshold + top-K policy logic embedded in API | No equivalent — most managed platforms only return probabilities |
 | **Docker Packaging** | Hand-written `Dockerfile` with slim base, non-root user, layer caching | SageMaker auto-containerization, Vertex AI custom containers |
-| **CI/CD Pipeline** | GitHub Actions: test → build → push (GHCR) → deploy (Cloud Run) | AWS CodePipeline, GCP Cloud Build triggers |
-| **Cloud Deployment** | Google Cloud Run with explicit resource configuration | SageMaker Endpoints, Azure ML managed compute |
+| **CI/CD Pipeline** | GitHub Actions: test → build → push (ECR) → deploy (ECS Fargate) | AWS CodePipeline, GCP Cloud Build triggers |
+| **Cloud Deployment** | AWS ECS Fargate with ALB and auto-scaling | SageMaker Endpoints, Azure ML managed compute |
 
 ### Architecture Diagram
 
@@ -47,15 +47,15 @@ This project does **not** use a pre-made managed ML serving platform (e.g., Sage
                         │                                          │
                         │  ┌──────────┐  ┌──────────┐  ┌────────┐ │
                         │  │  1. Test  │→ │ 2. Build │→ │3.Deploy│ │
-                        │  │  pytest   │  │  Docker  │  │Cloud   │ │
-                        │  │  policy   │  │  push to │  │Run     │ │
-                        │  │  tests    │  │  ghcr.io │  │        │ │
+                        │  │  pytest   │  │  Docker  │  │ECS     │ │
+                        │  │  16 API   │  │  push to │  │Fargate │ │
+                        │  │  tests    │  │  ECR     │  │        │ │
                         │  └──────────┘  └──────────┘  └────────┘ │
                         └──────────────────────────────────────────┘
                                                           │
                                                           ▼
 ┌─────────────────┐    ┌──────────────────────────────────────────┐
-│   Streamlit     │    │      Google Cloud Run (us-central1)      │
+│   Streamlit     │    │   AWS ECS Fargate + ALB (us-east-1)      │
 │   Dashboard     │───▶│                                          │
 │  (optional UI)  │    │   ┌──────────────────────────────────┐   │
 └─────────────────┘    │   │  Docker Container (python:3.11)  │   │
@@ -72,8 +72,8 @@ This project does **not** use a pre-made managed ML serving platform (e.g., Sage
 └─────────────────┘    │   │  └── categorical_cols.json       │   │
                        │   └──────────────────────────────────┘   │
                        │                                          │
-                       │  Config: 1 CPU, 1 Gi RAM, 0-3 instances  │
-                       │  Scale-to-zero, pay-per-request           │
+                       │  Config: 0.25 vCPU, 0.5 GB, auto-scaling │
+                       │  ALB health checks, rolling deployments   │
                        └──────────────────────────────────────────┘
 ```
 
@@ -84,8 +84,8 @@ This project does **not** use a pre-made managed ML serving platform (e.g., Sage
 | **Inference Framework** | FastAPI | Async-capable, auto-generates OpenAPI docs, Pydantic validation, lightweight |
 | **Model Format** | `model.pkl` (joblib) | 18 MB, sub-millisecond deserialization, standard scikit-learn compatible |
 | **Containerization** | Docker (python:3.11-slim) | ~400 MB image vs ~1.5 GB full; only serving deps via `requirements-serve.txt` |
-| **Container Registry** | GitHub Container Registry (ghcr.io) | Free for public repos, integrated with GitHub Actions, no extra auth |
-| **Cloud Platform** | Google Cloud Run | Serverless, scale-to-zero, pay-per-request, no cluster management |
+| **Container Registry** | Amazon ECR | Native to AWS, integrates with ECS, IAM-based auth |
+| **Cloud Platform** | AWS ECS Fargate | Serverless containers, no cluster management, auto-scaling, native AWS ecosystem |
 | **CI/CD** | GitHub Actions | Native to repo, free tier generous, declarative YAML workflows |
 | **Experiment Tracking** | MLflow (local) | Open-source, language-agnostic, tracks 12+ experiments with artifacts |
 | **Cloud Training** | AWS SageMaker (validated) | Demonstrates managed training; single controlled run for portfolio proof |
@@ -99,7 +99,7 @@ This project does **not** use a pre-made managed ML serving platform (e.g., Sage
 
 | Platform | Type | Cold Start | Scaling | Cost Model | Monitoring | Our Assessment |
 |----------|------|-----------|---------|------------|------------|----------------|
-| **Google Cloud Run** (chosen) | Serverless containers | ~2-5s | Auto (0→3 instances) | Pay-per-request + CPU/mem seconds | Cloud Logging, Cloud Monitoring | **Best fit** — scale-to-zero, low cost at low volume, full Docker control |
+| **AWS ECS Fargate** (chosen) | Serverless containers | ~5-10s | Auto (task auto-scaling) | Pay-per-vCPU/mem seconds | CloudWatch, SNS alerts | **Best fit** — serverless containers, native AWS ecosystem alongside SageMaker, full Docker control |
 | **AWS SageMaker Endpoints** | Managed ML serving | ~30-60s | Auto-scaling policies | Always-on instance hours ($0.05-0.12/hr) | CloudWatch, Model Monitor | Overkill — persistent endpoint cost for a single LightGBM model |
 | **Google Vertex AI Prediction** | Managed ML serving | ~30s | Auto-scaling | Min 1 instance always on | Vertex AI Monitoring | Similar cost issue as SageMaker; better for multi-model serving |
 | **Azure ML Online Endpoints** | Managed ML serving | ~20-40s | Auto-scaling | Compute instance hours | Azure Monitor | Good alternative but adds Azure vendor lock-in |
@@ -108,23 +108,23 @@ This project does **not** use a pre-made managed ML serving platform (e.g., Sage
 | **Kubernetes (EKS/GKE)** | Container orchestration | Depends on config | Horizontal Pod Autoscaler | Cluster + node costs | Prometheus/Grafana | Maximum control; excessive operational overhead for single-model serving |
 | **Hugging Face Inference Endpoints** | Managed ML serving | ~10-30s | Auto (paid tier) | Per-hour GPU/CPU | Basic metrics | Designed for transformers; unnecessary for LightGBM |
 
-### Why Google Cloud Run Won
+### Why AWS ECS Fargate Won
 
-1. **Scale-to-zero**: No cost when idle — critical for a model that may serve sporadic batch requests
+1. **Unified AWS ecosystem**: SageMaker (training) + ECR (registry) + ECS (serving) + CloudWatch (monitoring) — all under one cloud provider, one IAM, one billing account
 2. **Docker-native**: Our existing `Dockerfile` works as-is — no platform-specific packaging
-3. **Fast cold starts**: ~2-5s for our 400 MB image (vs. 30-60s for managed ML platforms)
-4. **Integrated logging**: Cloud Logging captures all stdout/stderr automatically
-5. **Simple pricing**: No minimum instances required; $0 when idle
-6. **CI/CD integration**: First-class GitHub Actions support via `google-github-actions/deploy-cloudrun`
+3. **Serverless containers**: No EC2 instances to manage; Fargate provisions compute per-task
+4. **Integrated monitoring**: CloudWatch captures logs, metrics, and supports SNS alerting natively
+5. **Auto-scaling**: ECS Service Auto Scaling adjusts task count based on CPU/memory or request volume
+6. **Cost-efficient**: ~$5/month at low volume (0.25 vCPU, 0.5 GB); no always-on minimum
 
 ### Why Not Managed ML Platforms (SageMaker/Vertex AI Endpoints)?
 
-| Factor | Cloud Run | SageMaker Endpoints |
-|--------|-----------|-------------------|
-| Minimum cost (idle) | **$0** | ~$37/month (ml.t2.medium always-on) |
-| Deploy complexity | `docker push` + one CLI command | Endpoint config, model package, inference spec |
+| Factor | ECS Fargate | SageMaker Endpoints |
+|--------|-------------|-------------------|
+| Minimum cost (idle) | **~$5/month** | ~$37/month (ml.t2.medium always-on) |
+| Deploy complexity | `docker push` + ECS task definition update | Endpoint config, model package, inference spec |
 | Custom decision policy | Built into FastAPI code | Requires custom inference container anyway |
-| Cold start | ~2-5s | ~30-60s |
+| Cold start | ~5-10s | ~30-60s |
 | Lock-in | Low (standard Docker) | High (SageMaker-specific packaging) |
 
 **Key insight**: Managed ML serving platforms shine when you need auto-scaling across many models, A/B testing between model versions, or GPU inference. For a single LightGBM model (18 MB, CPU-only, millisecond inference), they add cost and complexity without benefit.
@@ -144,35 +144,36 @@ This project does **not** use a pre-made managed ML serving platform (e.g., Sage
 | Container image size | ~400 MB | Slim base + serving-only dependencies |
 | Memory footprint at runtime | ~200-300 MB | Model + pandas + FastAPI overhead |
 
-### Cloud Run Cost Estimation
+### ECS Fargate Cost Estimation
 
 **Assumptions**: ~1,000 predictions/day, batch of 10K monthly for campaign targeting
 
 | Cost Component | Estimate | Notes |
 |----------------|----------|-------|
-| CPU (vCPU-seconds) | ~$0.50/month | 1 vCPU, ~2s per request, 1000 req/day |
-| Memory (GiB-seconds) | ~$0.30/month | 1 GiB allocated, same duration |
-| Requests | ~$0.12/month | $0.40 per million requests |
-| **Total estimated** | **~$1/month** | Scale-to-zero eliminates idle cost |
+| ECS Fargate (0.25 vCPU, 0.5 GB, ~10 hrs/day active) | ~$5/month | Per-second billing for vCPU + memory |
+| ECR (image storage, ~400 MB, 10 versions) | ~$1/month | $0.10/GB/month |
+| ALB (load balancer) | ~$16/month | Fixed cost + LCU charges |
+| CloudWatch (logs + metrics) | ~$3/month | 5 GB logs/month |
+| **Total estimated** | **~$26/month** | At low-to-moderate volume |
 | Networking (egress) | Negligible | Small JSON responses |
 
 **Comparison**:
 - SageMaker Endpoint (ml.t2.medium, always-on): **~$37/month**
 - Vertex AI Endpoint (n1-standard-2, min 1): **~$50/month**
 - Render.com (free tier): **$0** but sleeps after 15min, 512 MB RAM limit
-- Kubernetes cluster (GKE Autopilot): **~$70/month** minimum
+- Kubernetes cluster (EKS): **~$70/month** minimum
 
 ### Trade-off Matrix
 
-| Factor | Weight | Cloud Run | SageMaker | Kubernetes | Render (free) |
-|--------|--------|-----------|-----------|------------|---------------|
-| Cost at low volume | High | 5/5 | 2/5 | 1/5 | 5/5 |
+| Factor | Weight | ECS Fargate | SageMaker | Kubernetes | Render (free) |
+|--------|--------|-------------|-----------|------------|---------------|
+| Cost at low volume | High | 4/5 | 2/5 | 1/5 | 5/5 |
 | Cold start latency | Medium | 4/5 | 2/5 | 5/5 | 2/5 |
-| Operational complexity | High | 5/5 | 3/5 | 1/5 | 5/5 |
-| Monitoring built-in | Medium | 4/5 | 5/5 | 3/5 | 1/5 |
+| Operational complexity | High | 4/5 | 3/5 | 1/5 | 5/5 |
+| Monitoring built-in | Medium | 5/5 | 5/5 | 3/5 | 1/5 |
 | Custom serving logic | High | 5/5 | 3/5 | 5/5 | 5/5 |
 | Auto-scaling | Medium | 4/5 | 4/5 | 5/5 | 1/5 |
-| Production readiness | Medium | 4/5 | 5/5 | 5/5 | 2/5 |
+| Production readiness | Medium | 5/5 | 5/5 | 5/5 | 2/5 |
 | **Weighted Score** | | **31** | **24** | **25** | **21** |
 
 ---
@@ -200,7 +201,7 @@ This section shows how every component fits together — from raw data to live p
  EVALUATION & POLICY                 DEPLOYMENT                      SERVING
  ━━━━━━━━━━━━━━━━━━                  ━━━━━━━━━━                      ━━━━━━━
  ROI threshold sweep                 Docker + CI/CD                   Live API
- SHAP explainability                 GitHub Actions → Cloud Run       FastAPI endpoints
+ SHAP explainability                 GitHub Actions → ECS Fargate     FastAPI endpoints
 
  ┌──────────────────────┐    ┌─────────────────────────┐    ┌─────────────────────┐
  │ threshold.json       │    │ Dockerfile              │    │ GET  /health        │
@@ -222,10 +223,10 @@ This section shows how every component fits together — from raw data to live p
 | **3. Model Training** | model_table.parquet | 12 trained models + metrics | LightGBM, XGBoost, etc. + MLflow | Local (validated on SageMaker) |
 | **4. Champion Selection** | MLflow leaderboard | `artifacts/champion/model.pkl` | Manual review + automated metrics | Local |
 | **5. Policy Optimization** | Scored validation set | `threshold.json`, `roi_policy.json` | threshold_optimization.py | Local |
-| **6. Docker Build** | src/ + artifacts/ | `ghcr.io/*/churn-api:latest` (~400 MB) | Docker + GitHub Actions | GitHub Actions runner |
-| **7. Automated Tests** | test_policy.py | Pass/fail gate | pytest | GitHub Actions runner |
-| **8. Deploy** | Docker image | Live Cloud Run service | `deploy-cloudrun` action | Google Cloud |
-| **9. Inference** | JSON/CSV request | Churn probability + action label | FastAPI + LightGBM | Cloud Run container |
+| **6. Docker Build** | src/ + artifacts/ | ECR image (~400 MB) | Docker + GitHub Actions | GitHub Actions runner |
+| **7. Automated Tests** | test_api.py | Pass/fail gate (16 tests) | pytest | GitHub Actions runner |
+| **8. Deploy** | Docker image | Live ECS Fargate service | ECS task definition update | AWS |
+| **9. Inference** | JSON/CSV request | Churn probability + action label | FastAPI + LightGBM | ECS Fargate container |
 
 ### SageMaker Integration (Cloud Training Validation)
 
@@ -265,11 +266,11 @@ register_model.py ◀────────────────── S3: 
 
 | What to Monitor | Tool | Alert Threshold |
 |-----------------|------|-----------------|
-| API response latency (p50, p95, p99) | Cloud Run metrics / Cloud Monitoring | p95 > 500ms |
-| Error rate (5xx responses) | Cloud Logging | > 1% of requests |
-| Container instance count | Cloud Run dashboard | Sustained max (3/3) instances |
-| Memory utilization | Cloud Run metrics | > 80% of 1 GiB |
-| Cold start frequency | Cloud Run logs | > 20% of requests hitting cold start |
+| API response latency (p50, p95, p99) | CloudWatch metrics + ALB target response time | p95 > 500ms |
+| Error rate (5xx responses) | CloudWatch Logs + ALB 5xx count | > 1% of requests |
+| Container task count | ECS service dashboard | Sustained max instances |
+| Memory utilization | CloudWatch ECS metrics | > 80% of allocated |
+| Cold start frequency | Application logs (startup logging) | > 20% of requests hitting cold start |
 
 #### B. Model Performance Monitoring
 
@@ -318,10 +319,10 @@ async def log_predictions(request, call_next):
     return response
 ```
 
-Cloud Run automatically captures all stdout/stderr into **Google Cloud Logging**, which can be:
-- Queried with Logs Explorer
-- Exported to BigQuery for long-term analysis
-- Alerting via Cloud Monitoring policies
+ECS Fargate automatically routes all stdout/stderr into **AWS CloudWatch Logs**, which can be:
+- Queried with CloudWatch Logs Insights
+- Exported to S3 for long-term analysis
+- Alerting via CloudWatch Alarms + SNS notifications
 
 ### 5.3 Data Drift Detection
 
@@ -390,7 +391,7 @@ def detect_feature_drift(baseline_df, current_df, features, threshold=0.01):
 │ CI/CD builds    │◀────│ Compare vs.      │◀────│ Score holdout   │
 │ new Docker image│     │ current champion │     │ Compute metrics │
 │ Deploys to      │     │ Auto-approve if  │     │ ROC-AUC, PR-AUC │
-│ Cloud Run       │     │ metrics improve  │     │ Run SHAP        │
+│ ECS Fargate     │     │ metrics improve  │     │ Run SHAP        │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
 ```
 
@@ -409,7 +410,7 @@ def detect_feature_drift(baseline_df, current_df, features, threshold=0.01):
 ```
 Current Production          New Candidate
 ─────────────────           ─────────────
-ghcr.io/*/churn-api:sha-abc    ghcr.io/*/churn-api:sha-def
+ECR/churn-api:sha-abc              ECR/churn-api:sha-def
 (tagged: latest)                (tagged: candidate)
 
 Deploy candidate ──▶ Run smoke tests ──▶ Pass? ──▶ Promote to latest
@@ -422,15 +423,16 @@ Deploy candidate ──▶ Run smoke tests ──▶ Pass? ──▶ Promote to 
 
 **Rollback is fast** because:
 - Every Docker image is tagged with its git commit SHA (`sha-a1b2c3d`)
-- Cloud Run keeps previous revisions; rollback = point traffic to previous revision
+- ECS keeps previous task definitions; rollback = update service to previous task definition
 - No database migrations involved (model is self-contained in the image)
+- Rollback time: < 5 minutes
 
 ### 5.6 Model Versioning & Governance
 
 | Artifact | Versioning Mechanism | Retention Policy |
 |----------|---------------------|------------------|
 | Trained model (.pkl) | Git commit SHA + MLflow run ID | Keep last 6 versions |
-| Docker image | ghcr.io tags (`sha-*` + `latest`) | Keep last 10 images |
+| Docker image | ECR tags (`sha-*` + `latest`) | Keep last 10 images |
 | Feature list | `feature_list.json` committed with model | Versioned with model |
 | Threshold policy | `threshold.json` committed with model | Versioned with model |
 | Training metrics | MLflow + `metrics.json` | Permanent (audit trail) |
@@ -451,7 +453,7 @@ Deploy candidate ──▶ Run smoke tests ──▶ Pass? ──▶ Promote to 
 │  │  PIPELINE   │   │              │   │              │   │           │  │
 │  │             │   │  Local:      │   │  Threshold   │   │  FastAPI  │  │
 │  │  8 DuckDB   │──▶│  MLflow +   │──▶│  Sweep +     │──▶│  Docker   │  │
-│  │  scripts    │   │  12 models   │   │  ROI + SHAP  │   │  Cloud Run│  │
+│  │  scripts    │   │  12 models   │   │  ROI + SHAP  │   │  ECS     │  │
 │  │  31GB→118MB │   │  FLAML tune  │   │              │   │           │  │
 │  └─────────────┘   │              │   └──────────────┘   └─────┬─────┘  │
 │                     │  Cloud:      │                           │         │
@@ -469,7 +471,7 @@ Deploy candidate ──▶ Run smoke tests ──▶ Pass? ──▶ Promote to 
 │  ┌─────────────────────────────────────────────────────────────────────┐  │
 │  │                        GOVERNANCE LAYER                             │  │
 │  │  MLflow Tracking │ SageMaker Model Registry │ Git SHA Versioning   │  │
-│  │  GHCR Image Tags │ Approval Gates │ Audit Trail │ Rollback Path    │  │
+│  │  ECR Image Tags  │ Approval Gates │ Audit Trail │ Rollback Path    │  │
 │  └─────────────────────────────────────────────────────────────────────┘  │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
@@ -483,26 +485,27 @@ Deploy candidate ──▶ Run smoke tests ──▶ Pass? ──▶ Promote to 
 test:
   - Checkout code
   - Install serving dependencies (requirements-serve.txt)
-  - Run pytest on policy unit tests (test_policy.py)
+  - Run pytest on API test suite (test_api.py — 16 tests)
   - FAIL → blocks build and deploy
 
 # Stage 2: Package
 build (requires: test passed):
-  - Login to GitHub Container Registry (ghcr.io)
+  - Login to Amazon ECR
   - Build Docker image from Dockerfile
   - Tag with: sha-{commit_hash} + latest (on main only)
-  - Push to ghcr.io (only on push to main, not PRs)
+  - Push to ECR (only on push to main, not PRs)
   - Uses GitHub Actions layer caching for fast rebuilds
 
 # Stage 3: Ship
 deploy (requires: build passed, main branch only):
-  - Authenticate to Google Cloud (service account key)
-  - Deploy to Cloud Run:
+  - Authenticate to AWS (IAM credentials or OIDC)
+  - Update ECS task definition with new image
+  - Deploy to ECS Fargate:
       service: churn-api
-      region: us-central1
-      image: ghcr.io/*/churn-api:latest
-      config: 1 CPU, 1Gi memory, 0-3 instances
-      flags: --allow-unauthenticated
+      region: us-east-1
+      image: ECR latest
+      config: 0.25 vCPU, 0.5 GB, auto-scaling
+      ALB health check: /health
 ```
 
 ### 6.3 Prediction Request Flow (Pseudo-code)
@@ -510,8 +513,8 @@ deploy (requires: build passed, main branch only):
 ```python
 # What happens when a prediction request arrives:
 
-# 1. Request arrives at Cloud Run → routed to FastAPI container
-# 2. If container is cold: start uvicorn, load model (~2-5s one-time)
+# 1. Request arrives at ALB → routed to ECS Fargate task (FastAPI container)
+# 2. If container is cold: start uvicorn, load model (~5-10s one-time)
 # 3. Process request:
 
 def predict(request):
@@ -547,7 +550,7 @@ def predict(request):
 ### 6.4 Monthly Retraining Trigger (Pseudo-code)
 
 ```python
-# Scheduled monthly retraining pipeline (e.g., via Cloud Scheduler + Cloud Run Job)
+# Scheduled monthly retraining pipeline (e.g., via EventBridge + ECS Scheduled Task)
 
 def monthly_retrain():
     # 1. Pull latest month's data
@@ -578,7 +581,7 @@ def monthly_retrain():
                         message=f"Retrain {current_month}: ROC-AUC={new_metrics['roc_auc']:.4f}")
 
     # 7. Post-deploy smoke test
-    response = requests.get("https://churn-api-xxxxx.run.app/health")
+    response = requests.get("https://churn-api.example.com/health")
     assert response.json()["status"] == "ok"
 ```
 
@@ -599,4 +602,4 @@ def monthly_retrain():
 
 ---
 
-*This deployment plan was developed alongside working infrastructure: a live Dockerfile, GitHub Actions CI/CD pipeline, Google Cloud Run deployment, and AWS SageMaker cloud training validation — all committed to the repository.*
+*This deployment plan was developed alongside working infrastructure: a live Dockerfile, GitHub Actions CI/CD pipeline, AWS ECS Fargate deployment architecture, and AWS SageMaker cloud training validation — all committed to the repository.*
