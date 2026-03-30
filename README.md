@@ -797,7 +797,17 @@ uvicorn src.serving.api:app --reload
 # Endpoints: GET /health  |  POST /predict  |  POST /predict_batch
 ```
 
-**Option B — Docker (production):**
+**Option B — Live deployment (Render):**
+
+The API is deployed at: **https://ai-customer-retention-mlops.onrender.com/**
+
+- Landing page: https://ai-customer-retention-mlops.onrender.com/
+- Interactive Swagger UI: https://ai-customer-retention-mlops.onrender.com/docs
+- Health check: https://ai-customer-retention-mlops.onrender.com/health
+
+> Note: The free-tier instance may take ~30 seconds to wake up on the first request.
+
+**Option C — Docker (production, local):**
 
 ```bash
 docker compose up --build
@@ -806,7 +816,7 @@ docker compose up --build
 # Health:    http://localhost:8000/health
 ```
 
-**Option C — Docker (API only):**
+**Option D — Docker (API only):**
 
 ```bash
 docker build -t churn-api .
