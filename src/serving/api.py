@@ -230,6 +230,18 @@ async def log_requests(request: Request, call_next):
 
 
 # ── endpoints ────────────────────────────────────────────────────────────────
+@app.get("/")
+def root():
+    """Landing page — directs visitors to the interactive API docs."""
+    return {
+        "service": "Churn Decision Intelligence API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/health",
+        "endpoints": ["/predict", "/predict_batch"],
+    }
+
+
 @app.get("/health")
 def health() -> Dict[str, Any]:
     return {
