@@ -31,9 +31,10 @@ jobs:
           APP_URL: "https://amey-churn-predictor.streamlit.app/"
         run: |
           echo "Pinging $APP_URL ..."
-          # --retry handles transient cold-start latency while the app wakes.
-          # We treat any HTTP response (even non-200) as "server is alive".
-          code=$(curl -sS -L --max-time 90 --retry 3 --retry-delay 15 \
+          # Do NOT follow redirects (-L removed): Streamlit returns a 303 that
+          # loops, and chasing it is pointless noise. A single response — even a
+          # 3xx — proves the server is reachable. --retry handles cold-start lag.
+          code=$(curl -sS --max-redirs 0 --max-time 90 --retry 3 --retry-delay 15 \
                       -o /dev/null -w "%{http_code}" "$APP_URL" || true)
           echo "HTTP status: $code"
           if [ -z "$code" ] || [ "$code" = "000" ]; then
