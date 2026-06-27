@@ -1,0 +1,43 @@
+name: Keep Streamlit Awake
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Streamlit Community Cloud apps sleep after 12 hours of no traffic. This pings
+# the public URL every 6 hours so a recruiter clicking the link never lands on a
+# "this app has gone to sleep" screen.
+#
+# Why every 4h (and not hourly, and not 6h): the sleep timer is 12h, but GitHub
+# does not guarantee scheduled runs — under load it silently DROPS them. At 4h
+# (6 pings/day), even a dropped ping leaves only an 8h gap, safely under 12h. At
+# 6h a single miss creates a 12h gap = right at the sleep edge. Hourly would be
+# resilient too but wastes Actions minutes and looks bot-like. 4h is the balance.
+# ──────────────────────────────────────────────────────────────────────────────
+
+on:
+  schedule:
+    - cron: "17 */4 * * *"   # every 4 hours, at :17 to avoid the top-of-hour stampede
+  workflow_dispatch:          # lets you trigger a manual ping from the Actions tab
+
+# Avoid overlapping runs if a previous ping is somehow still going.
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the Streamlit app
+        env:
+          APP_URL: "https://amey-churn-predictor.streamlit.app/"
+        run: |
+          echo "Pinging $APP_URL ..."
+          # --retry handles transient cold-start latency while the app wakes.
+          # We treat any HTTP response (even non-200) as "server is alive".
+          code=$(curl -sS -L --max-time 90 --retry 3 --retry-delay 15 \
+                      -o /dev/null -w "%{http_code}" "$APP_URL" || true)
+          echo "HTTP status: $code"
+          if [ -z "$code" ] || [ "$code" = "000" ]; then
+            echo "::warning::No response from app (status $code) — it may be waking or down."
+          else
+            echo "App responded with $code — awake."
+          fi
