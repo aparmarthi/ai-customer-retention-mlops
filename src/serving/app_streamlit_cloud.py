@@ -185,7 +185,7 @@ SAMPLE_RECORDS = [
 
 # ─── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Churn Predictor — Amey Parmarth",
+    page_title="Churn Predictor — Amey Parmarthi",
     page_icon="📉",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -247,11 +247,11 @@ st.markdown("""
     <h1>📉 Churn Decision Intelligence Engine</h1>
     <p>End-to-end ML system: feature engineering → LightGBM → ROI-optimized targeting</p>
     <p style="font-size: 0.9rem; margin-top: 0.8rem;">
-        Built by <strong>Amey Parmarth</strong> &nbsp;|&nbsp; KKBox Music Streaming Dataset &nbsp;|&nbsp; ~1.2% Churn Rate
+        Built by <strong>Amey Parmarthi</strong> &nbsp;|&nbsp; KKBox Music Streaming Dataset &nbsp;|&nbsp; ~1.2% Churn Rate
     </p>
     <div class="hero-links" style="margin-top: 0.8rem;">
-        <a href="https://github.com/ameyp-parmarth/ai-customer-retention-mlops" target="_blank">📂 GitHub Repo</a>
-        <a href="https://www.linkedin.com/in/ameyparmarth/" target="_blank">💼 LinkedIn</a>
+        <a href="https://github.com/aparmarthi/ai-customer-retention-mlops" target="_blank">📂 GitHub Repo</a>
+        <a href="https://www.linkedin.com/in/ameyparmarthi/" target="_blank">💼 LinkedIn</a>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -311,7 +311,7 @@ with st.sidebar:
     )
     st.markdown(
         "[View production API code →]"
-        "(https://github.com/ameyp-parmarth/ai-customer-retention-mlops/blob/main/src/serving/api.py)"
+        "(https://github.com/aparmarthi/ai-customer-retention-mlops/blob/main/src/serving/api.py)"
     )
 
 
@@ -658,7 +658,7 @@ st.divider()
 st.markdown(
     '<div style="text-align: center; color: #6c757d; font-size: 0.8rem; padding: 1rem 0;">'
     'Built with Streamlit · LightGBM · FLAML AutoML · MLflow · FastAPI<br>'
-    '<a href="https://github.com/ameyp-parmarth/ai-customer-retention-mlops" '
+    '<a href="https://github.com/aparmarthi/ai-customer-retention-mlops" '
     'style="color: #667eea;">View full project on GitHub</a>'
     '</div>',
     unsafe_allow_html=True,

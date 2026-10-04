@@ -1,44 +1,71 @@
 name: Keep Streamlit Awake
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Streamlit Community Cloud apps sleep after 12 hours of no traffic. This pings
-# the public URL every 6 hours so a recruiter clicking the link never lands on a
-# "this app has gone to sleep" screen.
+# Streamlit Community Cloud apps sleep after 12 hours without a real visitor, so
+# a recruiter clicking the link can land on a "this app has gone to sleep" screen.
 #
-# Why every 4h (and not hourly, and not 6h): the sleep timer is 12h, but GitHub
-# does not guarantee scheduled runs — under load it silently DROPS them. At 4h
-# (6 pings/day), even a dropped ping leaves only an 8h gap, safely under 12h. At
-# 6h a single miss creates a 12h gap = right at the sleep edge. Hourly would be
-# resilient too but wastes Actions minutes and looks bot-like. 4h is the balance.
+# Why a headless browser, not curl: curl only reaches Streamlit's 303 auth
+# redirect and never loads the app, so it doesn't count as a visit. This loads
+# the page in Chromium and clicks the wake-up button if the app is asleep. The
+# job FAILS if the app stays asleep, so a broken keep-alive is visible in the
+# Actions tab instead of silently passing.
+#
+# Why every 4h: the sleep timer is 12h, but GitHub can drop scheduled runs under
+# load. At 4h, one dropped run still leaves only an 8h gap.
+#
+# Why the re-enable step: GitHub disables scheduled workflows after 60 days with
+# no repo activity. Re-enabling on each run keeps the schedule alive.
 # ──────────────────────────────────────────────────────────────────────────────
 
 on:
   schedule:
     - cron: "17 */4 * * *"   # every 4 hours, at :17 to avoid the top-of-hour stampede
-  workflow_dispatch:          # lets you trigger a manual ping from the Actions tab
+  workflow_dispatch:          # lets you trigger a manual visit from the Actions tab
 
-# Avoid overlapping runs if a previous ping is somehow still going.
 concurrency:
   group: keepalive
   cancel-in-progress: false
 
+permissions:
+  actions: write   # needed for the re-enable step
+
 jobs:
-  ping:
+  visit:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Ping the Streamlit app
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Playwright
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Visit the app and wake it if asleep
         env:
           APP_URL: "https://amey-churn-predictor.streamlit.app/"
         run: |
-          echo "Pinging $APP_URL ..."
-          # Do NOT follow redirects (-L removed): Streamlit returns a 303 that
-          # loops, and chasing it is pointless noise. A single response — even a
-          # 3xx — proves the server is reachable. --retry handles cold-start lag.
-          code=$(curl -sS --max-redirs 0 --max-time 90 --retry 3 --retry-delay 15 \
-                      -o /dev/null -w "%{http_code}" "$APP_URL" || true)
-          echo "HTTP status: $code"
-          if [ -z "$code" ] || [ "$code" = "000" ]; then
-            echo "::warning::No response from app (status $code) — it may be waking or down."
-          else
-            echo "App responded with $code — awake."
-          fi
+          python - <<'EOF'
+          import os
+          from playwright.sync_api import sync_playwright
+
+          with sync_playwright() as p:
+              page = p.chromium.launch().new_page()
+              page.goto(os.environ["APP_URL"], timeout=90_000)
+              page.wait_for_timeout(15_000)
+              wake = page.get_by_role("button", name="get this app back up")
+              if wake.count():
+                  print("App was asleep. Clicking wake-up button.")
+                  wake.click()
+                  page.wait_for_timeout(90_000)
+                  if wake.count():
+                      raise SystemExit("App is still asleep after clicking wake-up.")
+              print("App is awake.")
+          EOF
+
+      - name: Keep this workflow enabled
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow enable keepalive.yml --repo "${{ github.repository }}"
