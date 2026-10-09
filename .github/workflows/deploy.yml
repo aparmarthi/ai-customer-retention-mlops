@@ -73,41 +73,42 @@ jobs:
 
   # ── 3. Deploy to Google Cloud Run (main branch only) ────────────────────────
   # Builds from source via Cloud Build → Artifact Registry (Cloud Run cannot pull from ghcr.io).
-  # Skips cleanly until the GCP_SA_KEY secret is configured.
+  # Keyless auth via Workload Identity Federation: GitHub OIDC token → short-lived credential for
+  # github-churn-deployer (roles/run.sourceDeveloper). The WIF provider only trusts this repo's main.
+  # Skipped if the GCP_WIF_PROVIDER / GCP_DEPLOY_SA repo variables are not set (e.g. on forks).
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    env:
-      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-      GCP_PROJECT_ID: finsight-gpu
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.GCP_WIF_PROVIDER != ''
+    permissions:
+      contents: read
+      id-token: write    # lets the job request a GitHub OIDC token for WIF
 
     steps:
-      - name: Skip notice (no GCP credentials configured)
-        if: env.GCP_SA_KEY == ''
-        run: echo "::notice::GCP_SA_KEY not set — skipping Cloud Run deploy."
-
       - uses: actions/checkout@v4
-        if: env.GCP_SA_KEY != ''
 
-      - name: Authenticate to Google Cloud
-        if: env.GCP_SA_KEY != ''
+      - name: Authenticate to Google Cloud (WIF, no stored key)
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}   # add in repo Settings → Secrets
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
 
       - name: Deploy to Cloud Run
-        if: env.GCP_SA_KEY != ''
+        id: deploy
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: churn-api
           region: us-central1
-          project_id: ${{ env.GCP_PROJECT_ID }}
+          project_id: finsight-gpu
           source: ./
+          # No --allow-unauthenticated: the public invoker binding persists across revisions,
+          # so the deployer never needs IAM-admin (setIamPolicy) permissions.
           flags: |
-            --allow-unauthenticated
             --memory=1Gi
             --cpu=1
             --min-instances=0
             --max-instances=3
             --port=8000
+
+      - name: Smoke test /health
+        run: curl -fsS --retry 5 --retry-delay 5 "${{ steps.deploy.outputs.url }}/health"
