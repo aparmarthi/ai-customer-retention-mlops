@@ -26,7 +26,7 @@ jobs:
         run: pip install -r requirements-serve.txt pytest httpx   # httpx required by fastapi TestClient
 
       - name: Run API and policy tests
-        run: pytest src/serving/test_api.py -v
+        run: python -m pytest src/serving/test_api.py -v   # -m puts repo root on sys.path for `from src...`
 
   # ── 2. Build and push Docker image ──────────────────────────────────────────
   build:
