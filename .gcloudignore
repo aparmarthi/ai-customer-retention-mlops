@@ -1,0 +1,27 @@
+# Upload filter for `gcloud run deploy --source .` (Cloud Build context).
+# Explicit file instead of .gitignore fallback: gcloud cannot re-include artifacts/champion/*
+# under the `artifacts/**` gitignore rule, which silently drops model.pkl from the build.
+.gcloudignore
+.git/
+.github/
+.gitignore
+.venv/
+.playwright-mcp/
+.claude/
+.devcontainer/
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+.env
+
+data/
+mlruns/
+notebooks/
+reports/
+docs/
+cloud/
+scripts/
+*.png

@@ -23,6 +23,7 @@ from __future__ import annotations
 import io
 import json
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -30,7 +31,8 @@ from typing import Any, Dict, List, Optional, Union
 import joblib
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 # ── logging ──────────────────────────────────────────────────────────────────
@@ -59,6 +61,15 @@ app = FastAPI(
     title="Churn Decision Intelligence API",
     version="1.0.0",
     description="Predict churn probability and return an action label using champion artifacts.",
+)
+
+# Browser front ends call this API cross-origin. Public read-only API with no cookies,
+# so "*" is the default; lock down via CORS_ALLOW_ORIGINS="https://a.com,https://b.com".
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.getenv("CORS_ALLOW_ORIGINS", "*").split(","),
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
 )
 
 
@@ -294,44 +305,63 @@ def predict(req: PredictRequest) -> PredictResponse:
     )
 
 
-@app.post("/predict_batch", response_model=BatchPredictResponse)
+# Request is parsed manually (not via typed params) so one endpoint can accept JSON or multipart.
+# Declaring both a pydantic body and File() makes FastAPI expect multipart only, silently
+# dropping JSON bodies. openapi_extra keeps both content types documented in /docs.
+_BATCH_OPENAPI = {
+    "requestBody": {
+        "required": True,
+        "content": {
+            "application/json": {"schema": BatchPredictRequest.model_json_schema()},
+            "multipart/form-data": {
+                "schema": {
+                    "type": "object",
+                    "properties": {"file": {"type": "string", "format": "binary"}},
+                    "required": ["file"],
+                }
+            },
+        },
+    }
+}
+
+
+@app.post("/predict_batch", response_model=BatchPredictResponse, openapi_extra=_BATCH_OPENAPI)
 async def predict_batch(
-    req: Optional[BatchPredictRequest] = None,
-    file: Optional[UploadFile] = File(default=None),
+    request: Request,
+    policy: str = "threshold",
+    threshold: Optional[float] = None,
+    k: Optional[int] = None,
 ) -> BatchPredictResponse:
     """
     Batch prediction via:
       A) JSON body: {"records": [...], "policy": "threshold"|"top_k", "threshold": ..., "k": ...}
-      B) CSV upload: multipart/form-data with file=<csv>
+      B) CSV upload: multipart/form-data with file=<csv>; policy/threshold/k as query params,
+         e.g. POST /predict_batch?policy=top_k&k=10000
 
     CSV must include feature columns (extras allowed).
     """
-    if (req is None) and (file is None):
-        raise HTTPException(status_code=400, detail="Provide either JSON body or CSV file upload.")
-
-    # ── parse input records ───────────────────────────────────────────────────
+    content_type = request.headers.get("content-type", "")
     records: List[Dict[str, Any]]
-    policy = "threshold"
-    threshold: Optional[float] = None
-    k: Optional[int] = None
 
-    if file is not None:
+    if content_type.startswith("multipart/form-data"):
+        form = await request.form()
+        file = form.get("file")
+        if not hasattr(file, "read"):
+            raise HTTPException(status_code=400, detail="Multipart upload must include a CSV in field 'file'.")
         content = await file.read()
         try:
             df_in = pd.read_csv(io.BytesIO(content))
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Failed to read CSV: {e}")
-
         records = df_in.to_dict(orient="records")
-        policy = "threshold"  # default for CSV unless you add query params later
-        threshold = None
-        k = None
+    elif content_type.startswith("application/json"):
+        try:
+            req = BatchPredictRequest.model_validate(await request.json())
+        except ValueError as e:  # covers malformed JSON and pydantic ValidationError
+            raise HTTPException(status_code=422, detail=f"Invalid JSON body: {e}")
+        records, policy, threshold, k = req.records, req.policy, req.threshold, req.k
     else:
-        assert req is not None
-        records = req.records
-        policy = req.policy
-        threshold = req.threshold
-        k = req.k
+        raise HTTPException(status_code=400, detail="Provide either JSON body or CSV file upload.")
 
     if not records:
         raise HTTPException(status_code=400, detail="No records provided.")

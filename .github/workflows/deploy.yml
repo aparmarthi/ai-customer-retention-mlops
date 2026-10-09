@@ -23,7 +23,7 @@ jobs:
           cache: pip
 
       - name: Install serving dependencies
-        run: pip install -r requirements-serve.txt pytest
+        run: pip install -r requirements-serve.txt pytest httpx   # httpx required by fastapi TestClient
 
       - name: Run API and policy tests
         run: pytest src/serving/test_api.py -v
@@ -69,23 +69,38 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ── 3. Deploy to Google Cloud Run (main branch only) ────────────────────────
+  # Builds from source via Cloud Build → Artifact Registry (Cloud Run cannot pull from ghcr.io).
+  # Skips cleanly until the GCP_SA_KEY secret is configured.
   deploy:
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      GCP_PROJECT_ID: finsight-gpu
 
     steps:
+      - name: Skip notice (no GCP credentials configured)
+        if: env.GCP_SA_KEY == ''
+        run: echo "::notice::GCP_SA_KEY not set — skipping Cloud Run deploy."
+
+      - uses: actions/checkout@v4
+        if: env.GCP_SA_KEY != ''
+
       - name: Authenticate to Google Cloud
+        if: env.GCP_SA_KEY != ''
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}   # add in repo Settings → Secrets
 
       - name: Deploy to Cloud Run
+        if: env.GCP_SA_KEY != ''
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: churn-api
           region: us-central1
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          source: ./
           flags: |
             --allow-unauthenticated
             --memory=1Gi

@@ -108,11 +108,42 @@ class TestPredict:
 
 
 class TestPredictBatch:
-    """
-    Note: /predict_batch accepts either a JSON body (BatchPredictRequest) or a CSV file upload.
-    Due to FastAPI's dual-optional parameter handling, JSON batch requests are sent as CSV
-    to ensure reliable parameter parsing in tests. The JSON path is tested via CSV conversion.
-    """
+    """/predict_batch accepts either a JSON body (BatchPredictRequest) or a CSV file upload."""
+
+    def test_batch_json_threshold(self, client, sample_record):
+        r = client.post("/predict_batch", json={"records": [sample_record] * 3, "policy": "threshold"})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["n"] == 3
+        assert body["policy_used"] == "threshold"
+
+    def test_batch_json_top_k(self, client, sample_record, feature_cols):
+        low_risk = {**sample_record, "cancel_rate": 0.0, "auto_renew_rate": 1.0}
+        high_risk = {**sample_record, "cancel_rate": 1.0, "auto_renew_rate": 0.0}
+        r = client.post("/predict_batch", json={"records": [low_risk, high_risk, low_risk], "policy": "top_k", "k": 1})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["policy_used"] == "top_k(1)"
+        assert sorted(item["rank"] for item in body["items"]) == [1, 2, 3]
+        assert sum(item["churn_label"] for item in body["items"]) == 1
+
+    def test_batch_json_top_k_requires_k(self, client, sample_record):
+        r = client.post("/predict_batch", json={"records": [sample_record], "policy": "top_k"})
+        assert r.status_code == 400
+
+    def test_batch_json_invalid_body(self, client):
+        r = client.post("/predict_batch", json={"not_records": []})
+        assert r.status_code == 422
+
+    def test_batch_csv_top_k_via_query(self, client, sample_record):
+        csv_bytes = pd.DataFrame([sample_record] * 4).to_csv(index=False).encode()
+        r = client.post(
+            "/predict_batch?policy=top_k&k=2",
+            files={"file": ("test.csv", io.BytesIO(csv_bytes), "text/csv")},
+        )
+        assert r.status_code == 200
+        assert r.json()["policy_used"] == "top_k(2)"
+        assert sum(item["churn_label"] for item in r.json()["items"]) == 2
 
     def test_batch_threshold_via_csv(self, client, sample_record):
         """Batch threshold policy via CSV upload."""
@@ -210,3 +241,15 @@ class TestEdgeCases:
         })
         assert r.status_code == 200
         assert r.json()["churn_label"] == 0
+
+
+# ── CORS ──────────────────────────────────────────────────────────────────────
+
+
+def test_cors_preflight_allows_browser_clients(client):
+    r = client.options(
+        "/predict",
+        headers={"Origin": "https://example.bolt.new", "Access-Control-Request-Method": "POST"},
+    )
+    assert r.status_code == 200
+    assert r.headers["access-control-allow-origin"] in ("*", "https://example.bolt.new")
