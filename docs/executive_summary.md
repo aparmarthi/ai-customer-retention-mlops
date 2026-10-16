@@ -4,9 +4,9 @@
 
 **Problem:** KKBox loses subscribers every month with no systematic way to predict who will leave or prioritize retention spend.
 
-**Solution:** ML-driven churn prediction platform that ranks every subscriber by exit risk, targets the top 10,000 highest-risk users monthly, and projects $12,200–$17,666 net ROI per scoring cycle under conservative assumptions.
+**Solution:** ML-driven churn prediction platform that ranks every subscriber by exit risk and recommends who to contact. The default policy (score ≥ 0.68, 1,478 contacts) projects **$17,666 net value per cycle** (239% net ROI) on the 193,205-subscriber validation window under documented assumptions. A tiered top-10,000 plan, with a cheap nudge below the top 1,478, projects $24,306. These are simulations, not realised revenue.
 
-**Key result:** The model concentrates 75% of actual churners into the top 10,000 contacts — a **3x lift** over random targeting — while keeping outreach volume predictable and budget-bounded.
+**Key result:** The model concentrates 75% of actual churners into the top 10,000 contacts (5.2% of the base), a **14.5x lift** over random targeting, while keeping outreach volume predictable and budget-bounded.
 
 ---
 
@@ -18,7 +18,7 @@ Subscription businesses face a universal challenge: churn is expensive, but rete
 - **Target no one** — losing subscribers who could have been saved with timely intervention
 - **Rely on rules** (e.g., "inactive for 30 days") — missing nuanced behavioral patterns
 
-KKBox, a music streaming service with millions of subscribers, provided real transaction and behavioral data spanning 2+ years. The dataset exhibits severe class imbalance (~1.2% churn rate in the evaluation window), making naive accuracy metrics misleading and precision-focused evaluation essential.
+KKBox, a music streaming service with millions of subscribers, provided real transaction and behavioral data spanning 2+ years. The dataset exhibits severe class imbalance (1.24% churn rate in the evaluation window), making naive accuracy metrics misleading and precision-focused evaluation essential.
 
 ---
 
@@ -28,11 +28,11 @@ An end-to-end ML platform — not just a model — that covers the full path fro
 
 | Layer | What It Does |
 |---|---|
-| **Data pipeline** | 7 ETL scripts process ~31 GB of raw logs into ML-ready features |
-| **Model training** | 12 architectures evaluated; FLAML AutoML LightGBM selected as champion |
-| **Decision policy** | Hybrid engine: top-K for operations, ROI-optimal threshold for cost-sensitive contexts |
+| **Data pipeline** | 8 ETL scripts process ~33 GB of raw logs into ML-ready features |
+| **Model training** | 12 experiments (baselines, 7 model families, ensemble, AutoML); FLAML AutoML LightGBM selected as champion |
+| **Decision policy** | ROI-optimal threshold by default; top-K for fixed contact capacity, paired with a cheap channel |
 | **ROI simulation** | Connects model precision to dollar outcomes under configurable assumptions |
-| **Serving** | FastAPI REST API exposing both policies with Pydantic contracts |
+| **Serving** | FastAPI REST API on Cloud Run exposing both policies with Pydantic contracts; React decision UI on Vercel |
 | **Explainability** | SHAP feature contributions — every prediction is auditable |
 | **Cloud validation** | AWS SageMaker training job + Model Registry — proves cloud readiness |
 
@@ -42,18 +42,24 @@ An end-to-end ML platform — not just a model — that covers the full path fro
 
 ### Quantified outcomes (per monthly scoring cycle)
 
-| Policy | Users Targeted | Expected Saves | Estimated Net ROI |
+Simulated on the 193,205-subscriber validation window; not realised revenue.
+
+| Policy | Users Targeted | Expected Saves | Simulated Net Value |
 |---|---:|---:|---:|
-| **Outreach** (email/SMS, $0.50/contact) | 10,000 | ~215 | **~$12,200** |
-| **ROI-optimal threshold** ($5/contact, 20% save rate) | 1,478 | ~209 | **$17,666** |
+| **ROI-optimal threshold** ($5/contact, 20% save rate, $120/save) | 1,478 | ~209 | **$17,666** |
+| **Top-10,000, same $5 incentive for everyone** | 10,000 | ~360 | **−$6,776** |
+| **Tiered top-10,000** ($5 incentive for the top 1,478; $0.50 nudge at 12% for the rest) | 10,000 | ~300 | **$24,306** |
+| **Outreach only** ($0.50/contact, 12% save rate, $80/save) | 10,000 | ~216 | **$12,290** |
+
+The −$6,776 row is the key finding: a fixed 10,000-contact budget with an incentive for everyone loses money, because precision below the top 1,478 is too low to cover a $5 contact. Capacity-based targeting pays only with a cheap channel for the lower tier. Tier-2 cost and save rate are illustrative.
 
 ### Model performance on time-based holdout
 
 | Metric | Value | Lift | Why It Matters |
 |---|---:|---:|---|
-| PR-AUC | 0.5392 | **43.5x** vs base rate | Ranking quality under 1.2% churn — the honest metric |
+| PR-AUC | 0.5392 | **43.4x** vs base rate | Ranking quality under 1.24% churn — the honest metric |
 | Recall @ top-10k | 75.0% | — | 3 out of 4 actual churners are in the contact list |
-| Precision @ top-10k | 18.0% | **3x** vs overall base rate | Every $1 of outreach works 3x harder than random targeting |
+| Precision @ top-10k | 18.0% | **14.5x** vs base rate | Each contact is 14.5x more likely to reach a churner than random targeting |
 
 ---
 
@@ -62,10 +68,10 @@ An end-to-end ML platform — not just a model — that covers the full path fro
 | Decision | What was chosen | What was sacrificed | Why |
 |---|---|---|---|
 | **PR-AUC over ROC-AUC** | Optimize for minority-class ranking | ROC-AUC looks better (0.966 vs 0.539) | ROC-AUC flatters under imbalance; PR-AUC reflects real targeting quality |
-| **Time-based split over random** | Chronological holdout (Feb 2017) | Metrics drop ~40% vs. random split | Random splits leak temporal patterns; time-based simulates production |
-| **Top-K over threshold (primary)** | Fixed 10,000 contacts/month | Misses some churners below the cutoff | Predictable budget, no threshold recalibration as distributions drift |
+| **Time-based split over random** | Chronological holdout (last transaction after 2017-02-24) | Metrics drop ~40% vs. random split | Random splits leak temporal patterns; time-based simulates production |
+| **Threshold over top-K (default)** | Score ≥ 0.68, ~1,478 contacts/cycle | Recall (43% vs 75% at top-10K) | Top-10K with a $5 incentive for all loses $6,776; top-K stays available for fixed capacity with a tiered channel |
 | **Single SageMaker job** | One controlled cloud validation run | No cloud-based hyperparameter tuning | Cost control; local experiments already optimized the model |
-| **LightGBM over deep learning** | 3 min train time, best PR-AUC | No neural network novelty | TabNet/FT-Transformer took 10-30x longer and scored worse on every metric |
+| **LightGBM over deep learning** | 3 min train time, best PR-AUC | No neural network novelty | TabNet/FT-Transformer took 8-11x longer and scored worse on every metric |
 
 ---
 
@@ -94,9 +100,8 @@ An end-to-end ML platform — not just a model — that covers the full path fro
 
 ### Phase 3 — Scale (Months 4+)
 
-- Expand to full top-10,000 targeting
-- Add incentive-based intervention for highest-confidence / highest-LTV users
-- Activate the ROI-optimal threshold policy for automated channels (push notifications, in-app messages)
+- Expand to the tiered top-10,000: incentive for score ≥ 0.68 (top 1,478), low-cost nudge for the rest
+- Replace the assumed save rates with the pilot's measured lift before committing incentive budget
 - Implement quarterly retraining with automated Model Registry promotion
 - Stand up monitoring dashboards (feature drift, Precision@K decay, ROI tracking)
 
@@ -136,7 +141,7 @@ Incremental ROI = (churn_rate_control − churn_rate_treatment)
 
 ### Sample size consideration
 
-With a baseline churn rate of ~18% in the top-10k (Precision@K), detecting a 3pp absolute reduction (18% → 15%) at 80% power and α=0.05 requires ~2,800 users per arm. A pilot K of 5,000 (2,500 per arm) is close to sufficient; scaling to K=10,000 (5,000 per arm) provides comfortable power.
+With a baseline churn rate of ~18% in the top-10k (Precision@K), detecting a 3pp absolute reduction (18% → 15%) at 80% power and α=0.05 (two-sided two-proportion z-test) requires 2,402 users per arm. A pilot K of 5,000 (2,500 per arm) is just sufficient; scaling to K=10,000 (5,000 per arm) provides comfortable power. The same calculator is on the UI's `#/experiment` page.
 
 ---
 
@@ -155,10 +160,10 @@ With a baseline churn rate of ~18% in the top-10k (Precision@K), detecting a 3pp
 
 | Metric | Target | Frequency |
 |---|---|---|
-| Precision @ top-10k | > 15% (> 2.5x base rate) | Monthly |
+| Precision @ top-10k | > 15% (> 12x the 1.24% base rate) | Monthly |
 | Recall @ top-10k | > 65% | Monthly |
 | Incremental churn reduction (A/B) | > 2pp vs. control | Monthly |
-| Net ROI per cycle | > $5,000 | Monthly |
+| Net value per cycle | > $5,000 | Monthly |
 
 ### Retraining triggers
 
@@ -177,8 +182,8 @@ Most ML portfolio projects stop at "I trained a model and got 0.96 AUC." This pr
 
 1. **Honest evaluation** — time-based split drops metrics by ~40% vs. random split; both are reported transparently
 2. **Business translation** — every model metric maps to a dollar outcome via configurable ROI assumptions
-3. **Operational realism** — top-K policy exists because real retention teams have fixed monthly capacity, not infinite threshold-based budgets
-4. **Two-policy architecture** — not one decision boundary, but a hybrid engine with documented tradeoffs
+3. **Operational realism** — top-K exists because real retention teams have fixed monthly capacity, and the simulation shows when that capacity loses money
+4. **Two-policy architecture** — not one decision boundary, but a threshold default plus a capacity option with documented tradeoffs
 5. **Cloud proof** — SageMaker training + Model Registry demonstrates the local pipeline works in managed infrastructure
 6. **Explainability** — SHAP contributions make every prediction auditable and actionable for product teams
 7. **Deployment readiness** — FastAPI service with Pydantic contracts, not a notebook with `model.predict()`

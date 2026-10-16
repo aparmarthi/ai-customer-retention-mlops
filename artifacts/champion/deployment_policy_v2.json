@@ -1,0 +1,44 @@
+{
+  "policy_name": "tiered_roi_threshold_primary",
+  "version": "v2",
+  "supersedes": "v1 (hybrid_topk_primary_roi_threshold_fallback): top-K primary lost $6,776 per cycle at the default assumptions",
+  "tiers": [
+    {
+      "action": "contact_now",
+      "min_score": 0.68,
+      "channel": "personal outreach with retention incentive",
+      "cost_per_contact": 5.0,
+      "assumed_save_rate": 0.2,
+      "selected_by": "roi_max threshold sweep on the validation window"
+    },
+    {
+      "action": "nudge",
+      "min_score": 0.2058,
+      "channel": "low-cost email or in-app nudge",
+      "cost_per_contact": 0.5,
+      "assumed_save_rate": 0.12,
+      "selected_by": "score of the 10,000th-ranked subscriber (ops capacity) on the validation window"
+    },
+    {
+      "action": "monitor",
+      "min_score": 0.0,
+      "channel": "none; re-score next cycle",
+      "cost_per_contact": 0.0,
+      "assumed_save_rate": 0.0
+    }
+  ],
+  "value_per_save": 120.0,
+  "validation_summary": {
+    "window": "last transaction after 2017-02-24",
+    "valid_rows": 193205,
+    "churners": 2402,
+    "tier_counts": {"contact_now": 1478, "nudge": 8522, "monitor": 183205},
+    "tier_churners": {"contact_now": 1044, "nudge": 757, "monitor": 601},
+    "net_per_cycle": {
+      "threshold_only": 17666.0,
+      "top_10k_single_channel": -6776.0,
+      "tiered": 24306.0
+    },
+    "note": "Simulated on the validation window with assumed save rates; not realised revenue. The nudge save rate (12%) is illustrative until a holdout measures it."
+  }
+}

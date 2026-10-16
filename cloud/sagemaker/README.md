@@ -53,17 +53,19 @@ Reasons:
 - **Lower cost** — SageMaker bills per-second of instance time; running 12+ experiments on `ml.m5.large` would add up with no modeling benefit
 - **Faster completion** — one job proves the full workflow end-to-end (submit → train → artifact → registry)
 - **Sufficient proof** — a single successful job demonstrates: S3 data ingestion, Script Mode execution, artifact packaging, and Model Registry integration
-- **No expected improvement** — the same hyperparameters and split logic are used; cloud training does not change model quality
+- **No expected improvement** — the same hyperparameters are used; cloud training does not change model quality
 
 This is intentionally a minimal validation run. In a production setting, SageMaker would be used for scheduled retraining, hyperparameter tuning jobs, and multi-instance distributed training — but those workflows are cost-prohibitive for a portfolio demonstration.
 
 ## Local Champion vs. SageMaker Metrics
 
-| Metric | Local Champion | Lift (Local) | SageMaker Run | Lift (SageMaker) |
-|---|---:|---:|---:|---:|
-| ROC-AUC | **0.9660** | **1.9x** vs random | 0.9484 | **1.9x** vs random |
-| PR-AUC | **0.5392** | **43.5x** vs base rate | 0.4707 | **38.0x** vs base rate |
-| F1 | 0.3678 | — | **0.4658** | — |
+| Metric | Local Champion | SageMaker Run |
+|---|---:|---:|
+| ROC-AUC | **0.9660** | 0.9484 |
+| PR-AUC | **0.5392** (43.4x the 1.24% base rate) | 0.4707 |
+| F1 | 0.3678 | **0.4658** |
+
+No PR-AUC lift is shown for the SageMaker run: its validation churn rate is in the job's `metrics.json` on S3, not in this repo, and dividing by the local 1.24% would be the wrong base.
 
 **Key observations:**
 
@@ -73,7 +75,7 @@ This is intentionally a minimal validation run. In a production setting, SageMak
 
 **Why F1 flips:** The local F1 is `f1_at_0_5` (fixed 0.5 threshold). F1 is sensitive to the decision boundary relative to the score distribution. A model with lower ranking quality can produce a higher F1 if its score distribution places more mass near the 0.5 cutoff. ROC-AUC and PR-AUC are threshold-invariant and remain the more reliable metrics for cross-environment comparison.
 
-**Why metrics differ at all:** The SageMaker run used the same hyperparameters and split logic, but differences in data volume (subset fraction for cost control), row ordering, and the quantile fallback split can shift the validation distribution. With a validation churn rate of only ~1.24%, PR-AUC is especially sensitive to small changes in positive-class composition.
+**Why metrics differ at all:** The SageMaker run used the same hyperparameters but a **different validation set**: a 10% random sample of the model table, dates parsed with `format="%Y%m%d"`, and a fixed 2017-01-31 cutoff. The local champion uses the full table and an 80th-percentile cutoff that resolves to 2017-02-24. The two validation sets have different rows and churn rates, so treat this table as a workflow check, not model parity. With a churn rate near 1%, PR-AUC is especially sensitive to positive-class composition.
 
 ## Files
 

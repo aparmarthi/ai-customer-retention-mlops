@@ -5,24 +5,24 @@ import { fmtInt, fmtPct } from '@/lib/format';
 import { Card, PageHeader } from '@/components/ui/primitives';
 
 const PLAN = [
-  { icon: Split, title: 'Randomized holdout', body: '50/50 within the top 10K: half get the retention offer, half get nothing.' },
+  { icon: Split, title: 'Randomized holdout', body: '50/50 within the top 10K, stratified by tier: half get their tier\'s offer (incentive or nudge), half get nothing.' },
   { icon: Target, title: 'Primary metric', body: '30-day retention rate delta between treatment and holdout.' },
   { icon: ShieldAlert, title: 'Guardrails', body: 'Complaint/unsubscribe rate and incentive cost per retained user.' },
   { icon: ClipboardList, title: 'Duration', body: '2 billing cycles.' },
 ];
 
 const DECISIONS = [
-  { title: 'LightGBM over the ensemble', why: 'The ensemble tied; the simpler model wins on serving cost and debuggability.' },
-  { title: 'K-based over threshold-based primary policy', why: 'Ops capacity is the real constraint, so the policy is expressed in contacts per cycle.' },
+  { title: 'LightGBM over the ensemble', why: 'The soft-vote ensemble put weight 1.0 on LightGBM, so the single model loses nothing and is simpler to serve and debug.' },
+  { title: 'Tiered threshold policy over top-K', why: 'A $5 incentive for all of the top 10K loses $6,776 per cycle at default assumptions. Policy v2 gives the incentive only above the ROI threshold (0.68) and a $0.50 nudge down to the 10,000th rank: +$24,306 simulated.' },
   { title: 'PR-AUC as the selection metric', why: '1.24% prevalence makes ROC-AUC flattering; PR-AUC tracks the positives we act on.' },
-  { title: 'Time-based validation', why: 'Train on earlier months, validate on Feb 2017: no leakage from future months.' },
+  { title: 'Time-based validation', why: 'Train on earlier transactions, validate on the latest 20% (after 2017-02-24): no leakage from the future.' },
   { title: 'CPU serving', why: 'No GPU needed for an 18.7 MB artifact.' },
 ];
 
 const RISKS = [
   { title: 'Save rate is assumed, not measured', body: 'Every dollar figure scales linearly with it. The holdout above is how it gets measured.' },
   { title: 'Uplift modeling', body: 'Target persuadables rather than just high-risk users, so incentives go where they change the outcome.' },
-  { title: 'Cost-sensitive tiers per channel', body: 'Match incentive and channel cost to risk tier instead of one offer for everyone.' },
+  { title: 'Scores rank well but are not calibrated', body: 'Nudge-tier subscribers (scores 0.21 to 0.68) churned at 8.9% on validation. Calibrate (e.g. isotonic) before reading a score as a probability or an expected value.' },
 ];
 
 function PctInput({ id, label, value, onChange, step = 0.5 }: { id: string; label: string; value: number; onChange: (v: number) => void; step?: number }) {

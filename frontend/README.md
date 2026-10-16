@@ -9,17 +9,21 @@ React + Vite + TypeScript + Tailwind, Recharts for charts, lucide-react for icon
 | Route | Purpose |
 | --- | --- |
 | `#/overview` | Executive one-pager: KPIs scaled to your subscriber base, model vs random, pipeline |
-| `#/simulator` | Policy simulator: K contacts, V / C / S assumptions, net-value curve, sensitivity, tiered policy, printable executive summary (PDF / Markdown) |
-| `#/evidence` | Time-based validation, random-split model-family benchmark, SHAP and threshold plots, SageMaker parity |
-| `#/score` | Live API: single customer, batch CSV, API console. Each score shows its top risk drivers, and the batch export adds risk band, suggested action and top reasons |
-| `#/mlops` | Deployment, monitoring plan (mock), deployment policy JSON |
+| `#/simulator` | Policy simulator: share of base to contact, V / C / S assumptions, net-value curve, sensitivity, three-policy comparison, printable executive summary (PDF / Markdown) |
+| `#/evidence` | Time-based validation, random-split model-family benchmark, SHAP and threshold plots, SageMaker portability check |
+| `#/score` | Live API: single customer, batch CSV, API console. Each single score shows the model's top-5 attributions (live) or indicative drivers (demo); the batch export adds risk band, suggested action and top reasons |
+| `#/mlops` | Deployment, monitoring plan (mock), deployment policy v2 (tiers the API returns as `action`) |
 | `#/experiment` | Holdout plan, sample-size calculator, decision log, risks |
 
-Only **Score Customers** calls the API. Every other page uses static validation data in `src/data/*.ts`. All business-value numbers are simulated on the Feb-2017 validation window (193,205 subscribers, 1 cycle = 1 month) and are not realized revenue.
+Only **Score Customers** calls the API. Every other page uses static validation data in `src/data/*.ts`. All business-value numbers are simulated on the time-based validation window (last transaction after 2017-02-24; 193,205 subscribers, 1 cycle = 1 month) and are not realized revenue.
 
-## Why this score (indicative risk drivers)
+## Why this score
 
-Every single-customer score shows a "Why this score" panel: up to 5 diverging bars (rose raises risk, emerald lowers it) and a suggested action under the risk band. These are **indicative, rule-of-thumb drivers, not the trained LightGBM model's attributions**. They come from the transparent estimator in `src/lib/demoScore.ts`, the same one Demo Mode uses. When the headline score comes from the model, the panel also shows the rule of thumb's own estimate next to the model's score, so any disagreement is visible.
+Every single-customer score shows a "Why this score" panel: up to 5 diverging bars (rose raises risk, emerald lowers it) and a suggested action under the risk band. The panel's heading says which source it shows.
+
+**Model attributions (live API, 1.1.0+).** `/predict` returns the top-5 TreeSHAP contributions in log-odds plus `base_value`. `toModelFactors()` in `src/lib/attributions.ts` converts them to probability points with the same average-slope method as below (baseline = `sigmoid(base_value)`), labels them from `src/data/features.ts` and formats dates. API warnings, such as a mostly-missing record, appear under the score.
+
+**Indicative drivers (Demo Mode, or an older API without `explanations`).** These are **indicative, rule-of-thumb drivers, not the trained LightGBM model's attributions**. They come from the transparent estimator in `src/lib/demoScore.ts`, the same one Demo Mode uses. When the headline score comes from the model, the panel also shows the rule of thumb's own estimate next to the model's score, so any disagreement is visible.
 
 `explainRecord(record, limit)` splits the estimate into named additive log-odds terms: auto-renew rate, cancel rate, membership expiry vs the 2017-02-28 cutoff, days since last listen, transaction count, active days, discount vs list price, full-listen share and listening seconds per active day. Each term's impact in probability points is:
 
@@ -32,14 +36,14 @@ That is, the term's logit contribution times the sigmoid's average slope between
 | Risk band | Score | Suggested action |
 | --- | --- | --- |
 | Contact now | ≥ 0.68 | Personal outreach with retention incentive |
-| Capacity tier | 0.2058 – 0.68 | Low-cost email or in-app nudge |
+| Nudge | 0.2058 – 0.68 | Low-cost email or in-app nudge |
 | Monitor | < 0.2058 | No action; re-score next cycle |
 
-Real per-customer attributions need the API to return them, e.g. top-N SHAP values from `/predict` (see the [proposed next step](../README.md#75-proposed-next-step-model-explanations-in-the-api) in the root README). Design notes: [docs/frontend-architecture.md](../docs/frontend-architecture.md).
+The bands match the API's policy v2 actions (`contact_now`, `nudge`, `monitor`). Design notes: [docs/frontend-architecture.md](../docs/frontend-architecture.md).
 
 ## Batch results and CSV export
 
-The results table adds a "Top reasons (indicative)" column with the top 2 driver chips per row (computed for the first 100 rows shown). **Export CSV** writes `churn_scores_top<K>.csv` with every row and these columns, in order:
+The results table adds a "Top reasons (indicative)" column, from the rule of thumb because batch scoring returns no attributions, with the top 2 driver chips per row (computed for the first 100 rows shown). **Export CSV** writes `churn_scores_top<K>.csv` with every row and these columns, in order:
 
 ```
 row_index, rank, churn_probability, label_at_0_68, in_top_k, risk_band, suggested_action, top_reasons, <original input columns...>
@@ -47,14 +51,30 @@ row_index, rank, churn_probability, label_at_0_68, in_top_k, risk_band, suggeste
 
 `risk_band`, `suggested_action` and `top_reasons` are new, inserted after `in_top_k`. `top_reasons` holds the top 3 drivers, `;`-separated, e.g. `Auto-renew on 0% of payments (+29 pts); ...`. Anything parsing the export by column position must be updated.
 
+## Policy simulator
+
+Every figure on `#/simulator` is per cycle at the subscriber base in the header (default 1,000,000). The model's operating curve is measured on the 193,205-subscriber validation window, so K is set in validation units and shown as a share of the base. Counts and dollars scale linearly by `subscribers / 193,205`. Under the results, a line shows the measured validation figures (e.g. 1,478 contacts, 1,044 churners, net $17,666) and the scale factor. Enter 193,205 as the base to see the measured window directly.
+
+- **Results:** net value per cycle and per year, **net ROI** (net ÷ spend, 239% at defaults) and **gross return on spend** (retained value ÷ spend, 3.4× at defaults), plus churners reached, precision, recall, break-even points and random targeting at the same contact count.
+- **Sensitivity (±50%):** net value is `TP·S·V − K·C`, so save rate and value per save always swing it equally. The callout names every tied leader, never just one.
+- **Which policy should we run?** compares, at the user's assumptions:
+
+| Policy | Contacts (validation window) | Channel |
+| --- | --- | --- |
+| ROI-max threshold (API default) | top 1,478 (score ≥ 0.68) | V / C / S incentive |
+| Fixed capacity, one channel | top 10,000 | same incentive for everyone |
+| Tiered | top 10,000 | incentive for the top 1,478, then a $0.50 nudge at a 12% save rate (illustrative) |
+
+At defaults and 1M subscribers, those come to +$91K, −$35K and +$126K per cycle (+$17,666, −$6,776 and +$24,306 on the validation window). Fixed capacity pays only when most of it goes through a cheap channel, which is why the Nudge band's action is a cheap channel.
+
 ## Executive summary report
 
 **Executive summary** on `#/simulator` opens a print-ready white report built from the current scenario (K, V, C, S, subscribers):
 
-- **Recommendation:** contacts per cycle at your scale, expected net per cycle and per year, ROI multiple and uplift vs random targeting. A loss-making scenario says so and gives the break-even value per save and save rate.
-- **Key numbers:** expected net / cycle, return on contact spend, churners reached (recall), hit rate (precision) and lift vs random.
-- **Contact plan by risk band**, scaled from the Feb-2017 curve (193,205 subs, 2,402 churners): Contact now (top 1,478), Capacity tier (ranks 1,479–10,000), Monitor (the rest), each with subscribers, share, expected churners and action.
-- **Assumptions, Model, Risks and sensitivities** (most sensitive assumption at ±50%, break-even points, save rate to be validated with a holdout) and **Caveats**, plus a shareable scenario link.
+- **Recommendation:** contacts per cycle at your scale, expected net per cycle and per year, retained value per $1 of contact spend and uplift vs random targeting. A loss-making scenario says so and gives the break-even value per save and save rate.
+- **Key numbers:** expected net / cycle, net ROI (with gross return on spend), churners reached (recall), hit rate (precision) and lift vs random.
+- **Contact plan by risk band**, scaled from the validation curve (193,205 subs, 2,402 churners): Contact now (top 1,478), Nudge (ranks 1,479–10,000), Monitor (the rest), each with subscribers, share, expected churners and action.
+- **Assumptions, Model, Risks and sensitivities** (most sensitive assumption at ±50%, naming both when save rate and value per save tie, break-even points, save rate to be validated with a holdout) and **Caveats**, plus a shareable scenario link.
 
 Exports: **Print or save PDF** (browser print; `@media print` rules in `src/index.css` hide the app shell), **Download** as Markdown (`churn-retention-summary-k<K>.md`) and **Copy text**. The logic is pure and unit-tested: `buildExecReport()` and `reportToMarkdown()` in `src/lib/report.ts`. All figures are simulated on the validation window, not realised revenue.
 
@@ -72,7 +92,7 @@ The Cloud Run service scales to zero. On load the app calls `GET /health` with a
 
 If `/health` fails or times out the app switches to **Demo Mode** (amber status pill):
 
-- Single customer: the 5 recorded validation customers return their real champion scores (`demo` badge). The 11 generated customer profiles and any custom edits are scored by a transparent rule of thumb in `src/lib/demoScore.ts` (`demo estimate · not the model` badge).
+- Single customer: the 5 reference records return scores recorded from the champion model (`demo` badge). The 11 generated customer profiles and any custom edits are scored by a transparent rule of thumb in `src/lib/demoScore.ts` (`demo estimate · not the model` badge).
 - Batch: "Use 5 samples" and the Paste JSON tab rank locally using recorded scores where available and the rule of thumb otherwise. CSV uploads require the live API.
 
 Profiles and the 60-customer example batch are generated deterministically in `src/data/profiles.ts` from 11 behavioural archetypes (loyal auto-renewer to expired one-off buyer), so they span all three risk bands. Tests in `src/data/profiles.test.ts` enforce that spread.
@@ -100,7 +120,7 @@ Missing feature columns are treated as NaN by the server; extra columns are igno
 
 `src/lib/economics.ts` holds pure functions. Precision is always derived from the operating curve (`tpAtK(k) / k`), never a user input.
 
-At defaults (V = $120, C = $5, S = 20%), K = 1,478 gives TP 1,044, precision 70.6%, recall 43.5%, net $17,666/cycle, ROI 3.4×, break-even save rate 5.9%, break-even contact cost $16.95.
+At defaults (V = $120, C = $5, S = 20%), K = 1,478 gives TP 1,044, precision 70.6%, recall 43.5%, net $17,666/cycle, gross return on spend 3.39×, net ROI 2.39× (239%), break-even save rate 5.9%, break-even contact cost $16.95.
 
 These values are locked in `src/lib/sanity.ts`. `npm test` asserts them (plus interpolation, sample-size and link round-trip tests), and the Simulator header shows a live "Math verified · N/N" badge computed from the same checks.
 
@@ -116,10 +136,10 @@ npm ci
 npm run dev        # local dev server
 npm run build      # production build
 npm run typecheck
-npm test           # vitest: 54 tests
+npm test           # vitest: 62 tests
 npm run lint
 ```
 
-Test files: `src/lib/economics.test.ts`, `src/lib/scenario.test.ts`, `src/lib/stats.test.ts`, `src/data/profiles.test.ts`, `src/pages/score/jsonBatch.test.ts`, `src/lib/demoScore.test.ts` (driver ranking, sum-to-gap, no invented inputs, `demoEstimate` parity) and `src/lib/report.test.ts` (report numbers and Markdown export). CI runs typecheck, tests and build on every push and PR to `main` (`frontend` job in `.github/workflows/deploy.yml`).
+Test files: `src/lib/economics.test.ts`, `src/lib/scenario.test.ts`, `src/lib/stats.test.ts`, `src/data/profiles.test.ts`, `src/pages/score/jsonBatch.test.ts`, `src/lib/demoScore.test.ts` (driver ranking, sum-to-gap, no invented inputs, `demoEstimate` parity), `src/lib/attributions.test.ts` (log-odds to points sums to the gap, labels, dates) and `src/lib/report.test.ts` (report numbers and Markdown export). CI runs typecheck, lint, tests and build on every push and PR to `main` (`frontend` job in `.github/workflows/deploy.yml`).
 
 Vercel deploys from this repo (project `churn-decision-intelligence`, root directory `frontend/`, Vite preset): every push to `main` goes to production and every PR gets a preview URL. Routing is hash-based, so `dist/` also works on any other static host with no rewrites. Set `VITE_API_URL` at build time to target another API.

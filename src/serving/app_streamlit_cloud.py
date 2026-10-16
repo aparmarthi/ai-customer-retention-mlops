@@ -574,7 +574,7 @@ with tab3:
         st.markdown(f"""
         <div class="metric-card {roi_color}">
             <div class="metric-value">${net_roi:,}</div>
-            <div class="metric-label">Net ROI</div>
+            <div class="metric-label">Net Value</div>
         </div>""", unsafe_allow_html=True)
 
     st.caption(f"Cost: ${roi['cost']:,}  |  ROI per targeted user: ${roi['roi_per_user']}")
@@ -587,15 +587,17 @@ with tab3:
         Expected Saves    = Expected Churners × Save Rate
         Benefit           = Expected Saves × Churn Cost
         Cost              = N_targeted × Intervention Cost
-        Net ROI           = Benefit − Cost
+        Net Value         = Benefit − Cost
+        Net ROI           = Net Value ÷ Cost
         ```
         """)
 
     st.info(
-        "💡 **Interview note:** The ROI-optimal threshold (0.68) yields $17,666/month "
-        "by targeting only 1,478 high-confidence users. The Top-10K policy maximizes "
-        "recall (75%) but has negative ROI at current assumptions — a real tradeoff "
-        "the business must decide."
+        "💡 **Interview note:** On the 193,205-subscriber validation window, the ROI-optimal "
+        "threshold (0.68) yields a simulated $17,666 net per cycle by targeting only 1,478 "
+        "high-confidence users. The Top-10K policy maximizes recall (75%) but loses $6,776 "
+        "at these assumptions; it pays only with a cheap channel below the top 1,478. "
+        "Simulated, not realised revenue."
     )
 
 
@@ -644,10 +646,10 @@ with tab4:
                 st.markdown(f"- **{feat}**: {desc}")
 
         st.info(
-            "💡 **Interview note:** Tenure and recency features dominate — "
-            "customers with shorter tenure and recent expiry dates are highest risk. "
-            "Behavioral signals (listening patterns, cancel rate) provide additional "
-            "discriminative power beyond demographics."
+            "💡 **Interview note:** Split-count importance favours high-cardinality "
+            "features such as dates and tenure, and says nothing about direction. "
+            "SHAP on the validation set (reports/shap_summary.png) ranks auto_renew_rate "
+            "and cancel_rate as the strongest drivers."
         )
     else:
         st.warning("Model not loaded — cannot display feature importances.")

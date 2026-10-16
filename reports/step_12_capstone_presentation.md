@@ -1,5 +1,7 @@
 # AI Customer Retention & Decision Intelligence Platform
 
+> **Historical capstone deliverable.** Kept as submitted. Some figures, the validation-split description and deployment targets (e.g. Render, ECS) are out of date; the [README](../README.md) and [CHANGELOG](../CHANGELOG.md) are current.
+
 ## Capstone Presentation — Full ML Lifecycle
 
 ---

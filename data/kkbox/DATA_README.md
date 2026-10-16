@@ -2,7 +2,7 @@
 
 **Source:** https://www.kaggle.com/c/kkbox-churn-prediction-challenge  
 **Description:** User activity, transaction, and membership data used to predict churn.  
-**Size:** ~28 GB, millions of records  
+**Size:** ~33 GB raw CSV (32.7 GB), millions of records  
 **Why chosen:** Real-world scale churn prediction with temporal behavior logs.
 
 ### Files

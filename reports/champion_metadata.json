@@ -2,7 +2,7 @@
   "model_release": "v1",
   "status": "champion",
   "approved": true,
-  "trained_at_utc": "TBD",
+  "trained_at_utc": "not recorded (model.pkl predates release metadata; the git commit below identifies the training code)",
   "git": {
     "commit": "08bc4a78841ed28b3eb58a536b7374730661ec15",
     "branch": "main"
@@ -12,15 +12,17 @@
     "training_table_path": "data/kkbox/processed/model_table.parquet",
     "time_col": "txn_last_date",
     "cutoff_policy": "quantile_0.8",
-    "cutoff_date": "1970-01-01 00:00:00.020170224",
+    "cutoff_date": "2017-02-24",
+    "cutoff_date_as_logged": "1970-01-01 00:00:00.020170224",
+    "cutoff_date_note": "The trainer read YYYYMMDD integers as nanoseconds since 1970, so the logged label is wrong. Ordering is preserved, so the split is still chronological on txn_last_date. See docs/decisions.md.",
     "valid_rows": 193205,
     "valid_churn_rate": 0.012432390466085247,
-    "snapshot_id": "TBD",
-    "fingerprint": "TBD"
+    "snapshot_id": "not recorded",
+    "fingerprint": "not recorded"
   },
   "features": {
-    "n_features": 40,
-    "feature_list_path": "TBD"
+    "n_features": 38,
+    "feature_list_path": "artifacts/champion/feature_list.json"
   },
   "model": {
     "family": "LightGBM",
@@ -55,6 +57,7 @@
     }
   },
   "policy": {
+    "deployment_policy": "artifacts/champion/deployment_policy_v2.json",
     "primary": {
       "type": "threshold",
       "selected_by": "roi_max",

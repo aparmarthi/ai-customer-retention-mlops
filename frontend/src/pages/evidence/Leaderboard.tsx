@@ -40,7 +40,7 @@ export function Leaderboard() {
   return (
     <Card
       title="Model-family benchmark (random split)"
-      subtitle="12-model sweep on a random 80/20 split at ~6.2% prevalence. Top 7 shown."
+      subtitle="Seven model families on a random 80/20 split at 6.4% prevalence. Baselines, ensemble and AutoML runs (12 experiments in total) are in leaderboard.md."
       action={<Badge tone="info">Random split</Badge>}
       bodyClassName="p-0"
     >

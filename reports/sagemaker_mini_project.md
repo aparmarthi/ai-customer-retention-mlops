@@ -12,7 +12,7 @@ This document consolidates all AWS SageMaker work performed as part of the AI Cu
 
 ### Problem Statement
 
-Predict subscriber churn for KKBox (a music streaming service) using ~31 GB of real subscription data (~1 million users). The champion model is a FLAML-tuned LightGBM classifier evaluated under severe class imbalance (1.24% churn rate in the time-based holdout).
+Predict subscriber churn for KKBox (a music streaming service) using ~33 GB of real subscription data (992,931 subscribers in the model table). The champion model is a FLAML-tuned LightGBM classifier evaluated under severe class imbalance (1.24% churn rate in the time-based holdout).
 
 ### Why SageMaker
 
@@ -36,7 +36,7 @@ SageMaker was used to validate that the local training pipeline translates to ma
 [Local Machine]                       [AWS Cloud]
 
 08_data_subset_for_sagemaker.py       S3 Bucket
-  Creates 10% stratified subset  -->  s3://amey-kkbox-sagemaker-us-east-1/
+  Creates 10% random subset      -->  s3://amey-kkbox-sagemaker-us-east-1/
   (model_table_sagemaker_subset.parquet)    kkbox-churn/input/subset/
 
 launch_training_job.py                SageMaker Training Job
@@ -73,7 +73,7 @@ register_model.py                     SageMaker Model Registry
 s3://amey-kkbox-sagemaker-us-east-1/kkbox-churn/
     input/
         subset/
-            model_table_sagemaker_subset.parquet     (13 MB, 10% stratified subset)
+            model_table_sagemaker_subset.parquet     (13 MB, 10% random subset)
     training/
         artifacts/
             kkbox-churn-champion-20260310142800/
@@ -98,9 +98,9 @@ s3://amey-kkbox-sagemaker-us-east-1/kkbox-churn/
 
 ### Source Data
 
-- **Original dataset:** ~31 GB of KKBox subscription data (4 tables: Members, Transactions, User Logs, Labels)
-- **Processed feature table:** 193,205 rows x ~40 features (`model_table.parquet`, 118 MB)
-- **SageMaker subset:** 10% stratified sample = ~19,320 rows (`model_table_sagemaker_subset.parquet`, 13 MB)
+- **Original dataset:** 32.7 GB of KKBox subscription data (4 tables: Members, Transactions, User Logs, Labels)
+- **Processed feature table:** 992,931 rows x 41 columns, 38 model features (`model_table.parquet`, 123 MB)
+- **SageMaker subset:** 10% random sample = ~99,300 rows (`model_table_sagemaker_subset.parquet`, 13 MB)
 
 ### Subsetting Script (`src/data/08_data_subset_for_sagemaker.py`)
 
@@ -114,7 +114,7 @@ df_subset.to_parquet(
 )
 ```
 
-**Why subset?** Cost control — running 12+ experiments on `ml.m5.large` with the full dataset would add significant cloud cost with no modeling benefit. The subset preserves class balance via stratified sampling.
+**Why subset?** Cost control — running 12+ experiments on `ml.m5.large` with the full dataset would add significant cloud cost with no modeling benefit. `df.sample(frac=0.10)` is a simple random sample, so class balance is preserved only in expectation.
 
 ### Upload to S3
 
@@ -136,7 +136,7 @@ The training script runs inside the SageMaker container and follows the SageMake
    - Output: writes all artifacts to `/opt/ml/model/` (SageMaker auto-packages to `model.tar.gz`)
 
 2. **Chronological train/valid split:**
-   - Primary: fixed date cutoff at `2017-01-31` (same as local champion)
+   - Primary: fixed date cutoff at `2017-01-31` (the local champion instead uses its 80th-percentile cutoff, 2017-02-24)
    - Fallback: 80th percentile quantile split if no rows exist after cutoff
    - This mirrors production conditions where you train on history and predict the future
 
@@ -278,16 +278,15 @@ python cloud/sagemaker/register_model.py \
 | **PR-AUC** | **0.5392** | 0.4707 | Local +6.8pp higher (primary metric) |
 | **F1@0.5** | 0.3678 | **0.4658** | SageMaker higher due to threshold sensitivity |
 | **Lift vs random (ROC)** | 1.9x | 1.9x | Both strong |
-| **Lift vs base rate (PR)** | 43.5x | 38.0x | Both demonstrate massive lift |
+| **Lift vs base rate (PR)** | 43.4x | not computed | SageMaker's validation churn rate differs and is not stored locally |
 
 ### Why Metrics Differ
 
-The SageMaker run used identical hyperparameters and split logic, but differences arise from:
+The SageMaker run used identical hyperparameters, but differences arise from:
 
-1. **Data volume:** 10% stratified subset vs. full dataset
-2. **Row ordering:** Different physical ordering after subsetting affects LightGBM leaf assignment
-3. **Quantile fallback split:** The subset may trigger the quantile-based split fallback, shifting validation distribution
-4. **PR-AUC sensitivity:** With only 1.24% churn, PR-AUC is especially sensitive to small changes in positive-class composition
+1. **Different split:** fixed 2017-01-31 cutoff with correctly parsed dates, vs. the local 80th-percentile cutoff (2017-02-24). The validation sets are different rows, so this is a workflow check, not model parity
+2. **Data volume:** 10% random subset vs. full dataset
+3. **PR-AUC sensitivity:** with a churn rate near 1%, PR-AUC is especially sensitive to small changes in positive-class composition
 
 ### Why F1 Reverses
 
@@ -309,7 +308,7 @@ The local champion remains the production model. The SageMaker run validates tha
 | **Model Artifact Management** | SageMaker auto-packages `/opt/ml/model/` into `model.tar.gz` and uploads to S3 |
 | **Model Registry** | Versioned, approval-gated Model Packages in SageMaker Model Registry |
 | **Cost-Controlled Validation** | Stratified subsetting + single controlled job for minimal cloud spend |
-| **Reproducibility** | Same FLAML-tuned hyperparameters, split logic, and feature engineering as local |
+| **Reproducibility** | Same FLAML-tuned hyperparameters and feature engineering as local; split cutoff differs (see above) |
 | **Two-Tier Registry** | Local (artifacts/champion/ + MLflow) + Cloud (SageMaker Model Registry) |
 
 ---
@@ -323,7 +322,7 @@ The local champion remains the production model. The SageMaker run validates tha
 | `register_model.py` | `cloud/sagemaker/` | Registers trained model in SageMaker Model Registry |
 | `requirements.txt` | `cloud/sagemaker/` | Runtime dependencies for SageMaker container |
 | `README.md` | `cloud/sagemaker/` | Detailed documentation of the SageMaker workflow |
-| `08_data_subset_for_sagemaker.py` | `src/data/` | Creates 10% stratified subset for cost control |
+| `08_data_subset_for_sagemaker.py` | `src/data/` | Creates 10% random subset for cost control |
 | `model_registry.md` | `docs/` | Two-tier registry design and approval process |
 | `model_table_sagemaker_subset.parquet` | `data/kkbox/processed/` | 13 MB training data subset |
 

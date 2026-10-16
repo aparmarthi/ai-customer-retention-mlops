@@ -1,7 +1,7 @@
 import { FlaskConical } from 'lucide-react';
 
 export const CAVEAT_TEXT =
-  'Simulated on Feb-2017 validation window (193,205 subscribers, 1 cycle = 1 month). Not realized revenue.';
+  'Simulated on the time-based validation window (193,205 subscribers, 1 cycle = 1 month). Not realized revenue.';
 
 export function CaveatChip({ className = '' }: { className?: string }) {
   return (

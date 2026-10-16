@@ -1,0 +1,163 @@
+{
+  "run_at_utc": "20261016T060826Z",
+  "target": "local",
+  "api_version": "1.1.0",
+  "passed": true,
+  "n_checks": 26,
+  "n_failed": 0,
+  "checks": [
+    {
+      "check": "net_threshold_only",
+      "passed": true,
+      "computed": 17666,
+      "reported": 17666.0
+    },
+    {
+      "check": "net_top_10k_single_channel",
+      "passed": true,
+      "computed": -6776,
+      "reported": -6776.0
+    },
+    {
+      "check": "net_tiered",
+      "passed": true,
+      "computed": 24306,
+      "reported": 24306.0
+    },
+    {
+      "check": "lift_pr_auc",
+      "passed": true,
+      "computed": 43.37,
+      "documented": 43.4
+    },
+    {
+      "check": "lift_5000",
+      "passed": true,
+      "computed": 21.64,
+      "documented": 21.6
+    },
+    {
+      "check": "lift_10000",
+      "passed": true,
+      "computed": 14.49,
+      "documented": 14.5
+    },
+    {
+      "check": "calibration_contact_now",
+      "passed": true,
+      "score_range": [
+        0.68,
+        1.0
+      ],
+      "observed_churn_rate": 0.7064,
+      "severity": "info"
+    },
+    {
+      "check": "calibration_nudge",
+      "passed": false,
+      "score_range": [
+        0.2058,
+        0.68
+      ],
+      "observed_churn_rate": 0.0888,
+      "severity": "info"
+    },
+    {
+      "check": "calibration_monitor",
+      "passed": true,
+      "score_range": [
+        0.0,
+        0.2058
+      ],
+      "observed_churn_rate": 0.0033,
+      "severity": "info"
+    },
+    {
+      "check": "parity: Loyal auto-renewer, 2-yr heavy listener",
+      "passed": true,
+      "expected": 0.786,
+      "got": 0.7862
+    },
+    {
+      "check": "parity: New single-txn, no auto-renew, expired",
+      "passed": true,
+      "expected": 0.978,
+      "got": 0.9781
+    },
+    {
+      "check": "parity: Mid-tenure, low price plan, prior cancel",
+      "passed": true,
+      "expected": 0.964,
+      "got": 0.9643
+    },
+    {
+      "check": "parity: Steady auto-renewer, active through Feb",
+      "passed": true,
+      "expected": 0.004,
+      "got": 0.0044
+    },
+    {
+      "check": "parity: Brand-new, already cancelled, 3 active days",
+      "passed": true,
+      "expected": 0.957,
+      "got": 0.9577
+    },
+    {
+      "check": "contract: health_ok",
+      "passed": true
+    },
+    {
+      "check": "contract: explanations_returned",
+      "passed": true
+    },
+    {
+      "check": "contract: action_returned",
+      "passed": true
+    },
+    {
+      "check": "contract: empty_record_warned",
+      "passed": true
+    },
+    {
+      "check": "contract: threshold_out_of_range_422",
+      "passed": true
+    },
+    {
+      "check": "contract: top_k_on_single_400",
+      "passed": true
+    },
+    {
+      "check": "contract: batch_bad_body_422",
+      "passed": true
+    },
+    {
+      "check": "contract: batch_empty_400",
+      "passed": true
+    },
+    {
+      "check": "contract: top_k_without_k_400",
+      "passed": true
+    },
+    {
+      "check": "latency_predict_p95",
+      "passed": true,
+      "n": 50,
+      "p50_ms": 51.3,
+      "p95_ms": 52.7,
+      "max_ms": 52.9,
+      "budget_ms": 500.0
+    },
+    {
+      "check": "latency_predict_no_explain_p50",
+      "passed": true,
+      "p50_ms": 3.0,
+      "severity": "info"
+    },
+    {
+      "check": "latency_batch_1000",
+      "passed": true,
+      "total_ms": 27.1,
+      "per_record_ms": 0.03
+    }
+  ]
+}

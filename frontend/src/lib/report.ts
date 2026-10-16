@@ -1,5 +1,5 @@
 import { CAPACITY_K, CAPACITY_THRESHOLD, DEFAULT_THRESHOLD, ROI_MAX_K, VALID } from '@/data/validation';
-import { knownThreshold, scale, scenario, sensitivity, tpAtK } from '@/lib/economics';
+import { joinDrivers, knownThreshold, scale, scenario, sensitivity, tpAtK } from '@/lib/economics';
 import type { ScenarioState } from '@/lib/scenario';
 import { fmtInt, fmtMultiple, fmtPct, fmtUsd2, fmtUsdCompact } from '@/lib/format';
 import { CAVEAT_TEXT } from '@/components/ui/CaveatChip';
@@ -48,7 +48,7 @@ export function buildExecReport(state: ScenarioState, link: string, now: Date = 
 
   const headline = positive
     ? `Contact the ${fmtInt(contacts)} highest-risk subscribers each cycle (top ${fmtPct(k / VALID.n, 2)} of the base). ` +
-      `Expected net value is ${fmtUsdCompact(net)} per cycle (${fmtUsdCompact(net * 12)} a year), a ${fmtMultiple(s.roi)} return on contact spend ` +
+      `Expected net value is ${fmtUsdCompact(net)} per cycle (${fmtUsdCompact(net * 12)} a year), ${fmtUsd2(s.returnOnSpend)} of retained value for every $1 of contact spend ` +
       `and ${fmtUsdCompact(uplift)} more per cycle than contacting the same number of subscribers at random.`
     : `At these assumptions, contacting the top ${fmtInt(contacts)} subscribers loses ${fmtUsdCompact(-net)} per cycle. ` +
       `To break even, each save must be worth more than ${Number.isFinite(breakEvenV) ? fmtUsd2(breakEvenV) : 'the current value'}, ` +
@@ -63,7 +63,8 @@ export function buildExecReport(state: ScenarioState, link: string, now: Date = 
     action,
   });
 
-  const top = sensitivity(k, state).bars[0];
+  const { bars, leaders } = sensitivity(k, state);
+  const top = bars[0];
 
   return {
     title: 'Churn retention plan',
@@ -72,7 +73,7 @@ export function buildExecReport(state: ScenarioState, link: string, now: Date = 
     headline,
     metrics: [
       { label: 'Expected net value / cycle', value: fmtUsdCompact(net), note: `${fmtUsdCompact(net * 12)} a year`, tone: positive ? 'value' : 'risk' },
-      { label: 'Return on contact spend', value: fmtMultiple(s.roi), note: `${fmtUsdCompact(at(s.spend))} spend / cycle` },
+      { label: 'Net ROI', value: fmtPct(s.netRoi, 0), note: `${fmtMultiple(s.returnOnSpend)} gross return on ${fmtUsdCompact(at(s.spend))} spend / cycle` },
       { label: 'Churners reached', value: fmtPct(s.recall, 0), note: `${fmtInt(at(s.tp))} of ${fmtInt(at(VALID.churners))} at risk` },
       { label: 'Hit rate of contacts', value: fmtPct(s.precision, 0), note: `${fmtMultiple(s.precision / VALID.churnRate, 0)} better than random` },
     ],
@@ -95,7 +96,7 @@ export function buildExecReport(state: ScenarioState, link: string, now: Date = 
       { label: 'Base churn rate', value: fmtPct(VALID.churnRate, 2) },
     ],
     risks: [
-      `${top.driver} is the most sensitive assumption: a \u00b150% change moves net value from ${fmtUsdCompact(net + at(Math.min(top.low, top.high)))} to ${fmtUsdCompact(net + at(Math.max(top.low, top.high)))} per cycle.`,
+      `${leaders.length > 1 ? `${joinDrivers(leaders)} are tied as the most sensitive assumptions` : `${top.driver} is the most sensitive assumption`}: a \u00b150% change in ${leaders.length > 1 ? 'either' : 'it'} moves net value from ${fmtUsdCompact(net + at(Math.min(top.low, top.high)))} to ${fmtUsdCompact(net + at(Math.max(top.low, top.high)))} per cycle.`,
       `Break-even points: save rate ${fmtPct(s.breakEvenSaveRate)} or cost per contact ${fmtUsd2(s.breakEvenCost)}.`,
       `The ${fmtPct(S, 0)} save rate is assumed, not measured. Run a holdout experiment before scaling the programme.`,
     ],

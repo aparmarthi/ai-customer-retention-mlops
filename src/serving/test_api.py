@@ -243,6 +243,79 @@ class TestEdgeCases:
         assert r.json()["churn_label"] == 0
 
 
+# ── Explanations, actions and guardrails ──────────────────────────────────────
+
+
+class TestExplanations:
+    def test_predict_returns_top_contributions(self, client, sample_record, feature_cols):
+        body = client.post("/predict", json={"record": sample_record}).json()
+        contribs = [e["contribution"] for e in body["explanations"]]
+        assert len(contribs) == 5
+        assert all(e["feature"] in feature_cols for e in body["explanations"])
+        assert [abs(c) for c in contribs] == sorted((abs(c) for c in contribs), reverse=True)
+        assert isinstance(body["base_value"], float)
+
+    def test_contributions_sum_to_model_log_odds(self, client, sample_record):
+        """All contributions plus the base value reproduce the score (TreeSHAP additivity)."""
+        from src.serving.api import MODEL, _to_feature_frame
+        import numpy as np
+        X = _to_feature_frame([sample_record])
+        contrib = MODEL.predict(X, pred_contrib=True)[0]
+        p = client.post("/predict", json={"record": sample_record}).json()["churn_probability"]
+        assert 1 / (1 + np.exp(-contrib.sum())) == pytest.approx(p, abs=1e-6)
+
+    def test_explain_false_skips_explanations(self, client, sample_record):
+        body = client.post("/predict", json={"record": sample_record, "explain": False}).json()
+        assert body["explanations"] == []
+        assert body["base_value"] is None
+
+    def test_action_follows_policy_tiers(self, client, sample_record):
+        body = client.post("/predict", json={"record": sample_record}).json()
+        p = body["churn_probability"]
+        expected = "contact_now" if p >= 0.68 else "nudge" if p >= 0.2058 else "monitor"
+        assert body["action"] == expected
+
+    def test_empty_record_is_flagged(self, client, feature_cols):
+        body = client.post("/predict", json={"record": {}}).json()
+        assert body["n_missing_features"] == len(feature_cols)
+        assert body["warnings"]
+
+    def test_complete_record_has_no_warning(self, client, sample_record):
+        body = client.post("/predict", json={"record": sample_record}).json()
+        assert body["n_missing_features"] == 0
+        assert body["warnings"] == []
+
+    def test_root_lists_feature_contract(self, client, feature_cols):
+        assert client.get("/").json()["features"] == feature_cols
+
+
+class TestGuardrails:
+    def test_threshold_out_of_range_rejected(self, client, sample_record):
+        assert client.post("/predict", json={"record": sample_record, "threshold": 1.5}).status_code == 422
+        assert client.post("/predict_batch?threshold=-0.1", json={"records": [sample_record]}).status_code == 422
+
+    def test_batch_over_limit_rejected(self, client):
+        r = client.post("/predict_batch", json={"records": [{}] * 50_001})
+        assert r.status_code == 413
+
+    def test_batch_counts_mostly_missing_and_actions(self, client, sample_record):
+        body = client.post("/predict_batch", json={"records": [sample_record, {}]}).json()
+        assert body["n_mostly_missing"] == 1
+        assert all(item["action"] in {"contact_now", "nudge", "monitor"} for item in body["items"])
+        assert body["score_drift"] is None  # under 1,000 records
+
+    def test_large_batch_reports_score_drift(self, client, sample_record):
+        body = client.post("/predict_batch", json={"records": [sample_record] * 1000}).json()
+        assert body["score_drift"]["status"] in {"stable", "moderate_shift", "significant_shift"}
+
+    def test_api_key_enforced_when_configured(self, client, sample_record, monkeypatch):
+        monkeypatch.setenv("API_KEY", "test-key")
+        assert client.post("/predict", json={"record": sample_record}).status_code == 401
+        r = client.post("/predict", json={"record": sample_record}, headers={"X-API-Key": "test-key"})
+        assert r.status_code == 200
+        assert client.get("/health").status_code == 200  # health stays open for probes
+
+
 # ── CORS ──────────────────────────────────────────────────────────────────────
 
 

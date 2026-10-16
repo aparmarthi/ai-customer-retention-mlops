@@ -2,7 +2,7 @@ export const VALID = {
   n: 193205,
   churners: 2402,
   churnRate: 0.01243,
-  window: 'Feb 2017 (1 month)',
+  window: 'Time-based holdout (last transaction after 2017-02-24)',
   champion: 'LightGBM (FLAML-tuned)',
   rocAuc: 0.966,
   prAuc: 0.5392,
@@ -26,11 +26,16 @@ export const CURVE: CurvePoint[] = [
   { k: 193205, tp: 2402 },
 ];
 
+/** Mirrors artifacts/champion/deployment_policy_v2.json, which the API loads to assign `action`. */
 export const POLICY = {
-  name: 'hybrid_topk_primary_roi_threshold_fallback',
-  version: 'v1',
-  primary: { type: 'top_k', k: 10000, note: 'Capacity-driven: retention team works the top 10K each cycle' },
-  fallback: { type: 'threshold', threshold: 0.68, note: 'ROI-max cutoff when capacity is unconstrained' },
+  policy_name: 'tiered_roi_threshold_primary',
+  version: 'v2',
+  tiers: [
+    { action: 'contact_now', min_score: 0.68, channel: 'personal outreach with retention incentive', cost_per_contact: 5.0, assumed_save_rate: 0.2 },
+    { action: 'nudge', min_score: 0.2058, channel: 'low-cost email or in-app nudge', cost_per_contact: 0.5, assumed_save_rate: 0.12 },
+    { action: 'monitor', min_score: 0.0, channel: 'none; re-score next cycle', cost_per_contact: 0.0, assumed_save_rate: 0.0 },
+  ],
+  value_per_save: 120.0,
 };
 
 export const DEFAULTS = { valuePerSave: 120, costPerContact: 5, saveRate: 0.2 };

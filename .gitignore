@@ -128,6 +128,7 @@ artifacts/champion/**
 !artifacts/champion/metrics.json
 !artifacts/champion/roi_policy.json
 !artifacts/champion/deployment_policy.json
+!artifacts/champion/deployment_policy_v2.json
 checkpoints/
 mlruns/
 wandb/
@@ -175,3 +176,5 @@ docker-compose.override.yml
 .venv-sagemaker/
 tmp/
 *.log
+# Local browser-automation output
+.playwright-mcp/

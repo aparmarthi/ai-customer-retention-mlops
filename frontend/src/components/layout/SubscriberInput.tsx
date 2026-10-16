@@ -42,7 +42,7 @@ export function SubscriberInput({ id = 'subscriber-base', compact = false }: { i
       <InfoTip
         align="end"
         side="bottom"
-        content="Scales every business-value figure from the 193,205-subscriber validation window to your base (100K to 50M). Accepts shorthand like 2.5m or 800k."
+        content="Scales every business-value figure from the 193,205-subscriber validation window to your base (100K to 50M). Enter 193,205 to see the measured validation-window figures. Accepts shorthand like 2.5m or 800k."
       />
     </div>
   );

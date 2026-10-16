@@ -1,5 +1,7 @@
 # bolt.new Prompt — Churn Decision Intelligence (v3, live API)
 
+> **Historical build prompt.** Kept for provenance of the AI-assisted UI build. Figures, naming and the dataset size (31 GB; the measured raw size is 32.7 GB) predate policy v2; the [README](../README.md) and [frontend README](../frontend/README.md) are current.
+
 > Paste everything below the line into bolt.new as a single prompt.
 > Every number, endpoint, field name and URL was verified against the repo on 2026-10-08
 > (`src/serving/api.py`, `artifacts/champion/*.json`, `leaderboard.md`) and smoke-tested against the

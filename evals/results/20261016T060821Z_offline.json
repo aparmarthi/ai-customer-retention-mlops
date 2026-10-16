@@ -1,0 +1,76 @@
+{
+  "run_at_utc": "20261016T060821Z",
+  "target": "offline",
+  "api_version": null,
+  "passed": true,
+  "n_checks": 9,
+  "n_failed": 0,
+  "checks": [
+    {
+      "check": "net_threshold_only",
+      "passed": true,
+      "computed": 17666,
+      "reported": 17666.0
+    },
+    {
+      "check": "net_top_10k_single_channel",
+      "passed": true,
+      "computed": -6776,
+      "reported": -6776.0
+    },
+    {
+      "check": "net_tiered",
+      "passed": true,
+      "computed": 24306,
+      "reported": 24306.0
+    },
+    {
+      "check": "lift_pr_auc",
+      "passed": true,
+      "computed": 43.37,
+      "documented": 43.4
+    },
+    {
+      "check": "lift_5000",
+      "passed": true,
+      "computed": 21.64,
+      "documented": 21.6
+    },
+    {
+      "check": "lift_10000",
+      "passed": true,
+      "computed": 14.49,
+      "documented": 14.5
+    },
+    {
+      "check": "calibration_contact_now",
+      "passed": true,
+      "score_range": [
+        0.68,
+        1.0
+      ],
+      "observed_churn_rate": 0.7064,
+      "severity": "info"
+    },
+    {
+      "check": "calibration_nudge",
+      "passed": false,
+      "score_range": [
+        0.2058,
+        0.68
+      ],
+      "observed_churn_rate": 0.0888,
+      "severity": "info"
+    },
+    {
+      "check": "calibration_monitor",
+      "passed": true,
+      "score_range": [
+        0.0,
+        0.2058
+      ],
+      "observed_churn_rate": 0.0033,
+      "severity": "info"
+    }
+  ]
+}

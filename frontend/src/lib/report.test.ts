@@ -12,6 +12,7 @@ describe('buildExecReport', () => {
     expect(r.positive).toBe(true);
     expect(r.headline).toMatch(/^Contact the /);
     expect(r.metrics).toHaveLength(4);
+    expect(r.risks[0]).toMatch(/^Save rate and value per save are tied/);
   });
 
   it('flags a loss-making scenario with break-even guidance', () => {

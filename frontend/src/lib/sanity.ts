@@ -3,11 +3,12 @@ import {
   breakEvenSaveRate,
   liftAtK,
   net,
+  netRoi,
   precisionAtK,
   randomNet,
   recallAtK,
+  returnOnSpend,
   revenueAtRisk,
-  roiMultiple,
   scale,
   spend,
   tieredNet,
@@ -34,7 +35,7 @@ const K = 1478;
 const SUBS = 1_000_000;
 
 export function sanityChecks(): SanityCheck[] {
-  const tier = tieredNet(V);
+  const tier = tieredNet(V, C, S);
   return [
     { label: 'True positives @ K=1,478', actual: tpAtK(K), expected: 1044, tolerance: 0.5 },
     { label: 'Precision @ K', actual: precisionAtK(K), expected: 0.706, tolerance: 0.0005 },
@@ -42,7 +43,9 @@ export function sanityChecks(): SanityCheck[] {
     { label: 'Value saved', actual: valueSaved(K, V, S), expected: 25056, tolerance: 1 },
     { label: 'Outreach spend', actual: spend(K, C), expected: 7390, tolerance: 0.01 },
     { label: 'Net value', actual: net(K, V, C, S), expected: 17666, tolerance: 1 },
-    { label: 'ROI multiple', actual: roiMultiple(K, V, C, S), expected: 3.39, tolerance: 0.01 },
+    { label: 'Return on spend (gross)', actual: returnOnSpend(K, V, C, S), expected: 3.39, tolerance: 0.01 },
+    { label: 'Net ROI', actual: netRoi(K, V, C, S), expected: 2.39, tolerance: 0.01 },
+    { label: 'Top-10K net at incentive cost', actual: net(10000, V, C, S), expected: -6776, tolerance: 1 },
     { label: 'Break-even save rate', actual: breakEvenSaveRate(K, V, C), expected: 0.059, tolerance: 0.0005 },
     { label: 'Break-even contact cost', actual: breakEvenCost(K, V, S), expected: 16.95, tolerance: 0.01 },
     { label: 'Random targeting net', actual: randomNet(K, V, C, S), expected: -6950, tolerance: 2 },
