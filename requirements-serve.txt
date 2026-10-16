@@ -1,6 +1,6 @@
 # Minimal runtime requirements for the FastAPI inference service.
 # Does NOT include PyTorch, TabNet, CatBoost, XGBoost, or training dependencies.
-# Use this for all cloud deployments (Render, Railway, Fly.io, etc.).
+# Used by the Dockerfile for the Cloud Run deployment; works on any container host.
 
 # Core data
 numpy>=1.26,<3.0

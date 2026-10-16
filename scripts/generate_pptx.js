@@ -1,3 +1,5 @@
+// Historical: builds reports/step_12_capstone_presentation.pptx as submitted. Figures, split and
+// deployment targets (ECS) are out of date; README.md and CHANGELOG.md are current.
 const pptxgen = require("pptxgenjs");
 
 const pres = new pptxgen();

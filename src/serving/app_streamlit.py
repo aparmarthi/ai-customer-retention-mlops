@@ -33,7 +33,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CHAMPION_DIR = PROJECT_ROOT / "artifacts" / "champion"
 
 # Reads from env var so cloud deployments auto-point to the right backend.
-# Set CHURN_API_URL=https://your-api.onrender.com in Render / Streamlit Cloud secrets.
+# Set CHURN_API_URL to the Cloud Run URL in Streamlit Cloud secrets.
 DEFAULT_API_BASE = os.environ.get("CHURN_API_URL", "http://127.0.0.1:8000")
 
 
@@ -90,7 +90,7 @@ def _compute_roi(
     Expected saves = N * P@K * save_rate
     Benefit = saves * churn_cost
     Cost = N * intervention_cost
-    Net ROI = Benefit - Cost
+    Net value = Benefit - Cost
     """
     expected_churners = n_targeted * precision_at_k
     expected_saves = expected_churners * save_rate
@@ -288,7 +288,7 @@ with tabs[2]:
 
     # Defaults from your threshold.json if available
     default_k = 10_000
-    default_precision_at_k = 0.179
+    default_precision_at_k = 0.1801
 
     if threshold_doc and isinstance(threshold_doc, dict):
         try:
@@ -316,7 +316,7 @@ with tabs[2]:
         )
 
     with col2:
-        churn_cost = st.slider("Value of retaining 1 churner ($)", min_value=10, max_value=500, value=120, step=10)
+        churn_cost = st.slider("Value of retaining 1 churner ($)", min_value=10, max_value=500, value=80, step=10)
         intervention_cost = st.slider("Cost per contact ($)", min_value=0.0, max_value=20.0, value=0.50, step=0.25)
 
     with col3:
@@ -335,7 +335,7 @@ with tabs[2]:
     kpi1.metric("Expected true churners in targeted set", f"{roi['expected_true_churners_in_targeted']:.0f}")
     kpi2.metric("Expected saves", f"{roi['expected_saves']:.0f}")
     kpi3.metric("Expected benefit ($)", f"{roi['benefit']:.0f}")
-    kpi4.metric("Net ROI ($)", f"{roi['net_roi']:.0f}")
+    kpi4.metric("Net value ($)", f"{roi['net_roi']:.0f}")
 
     st.caption("Details")
     st.code(_pretty_json(roi))

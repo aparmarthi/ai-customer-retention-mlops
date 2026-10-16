@@ -6,11 +6,13 @@
 ![FastAPI](https://img.shields.io/badge/Serving-FastAPI-009688?logo=fastapi&logoColor=white)
 ![SageMaker](https://img.shields.io/badge/Cloud-SageMaker-FF9900?logo=amazonaws&logoColor=white)
 
-> End-to-end ML platform built on **~31 GB of real KKBox subscription data** — from raw logs to a production-grade decision policy. Predicts subscriber churn, optimizes intervention targeting, and simulates measurable business ROI.
+> End-to-end ML platform built on **~33 GB of real KKBox subscription data** — from raw logs to a production-grade decision policy. Predicts subscriber churn, optimizes intervention targeting, and simulates measurable business ROI.
 
-This project goes beyond model accuracy. It demonstrates full-stack ML system design: scalable feature engineering, experiment governance, two-policy decision engine, and ROI-aligned threshold optimization — mirroring real MLE + MLOps + AI Product workflows.
+This project goes beyond model accuracy. It demonstrates full-stack ML system design: scalable feature engineering, experiment governance, a versioned tiered decision policy, and ROI-aligned threshold optimization — mirroring real MLE + MLOps + AI Product workflows.
 
-**Live:** [Decision Intelligence UI](https://churn.ameyparmarthi.com/) (React: per-customer risk drivers, suggested actions, one-click executive summary) · [Streamlit dashboard](https://amey-churn-predictor.streamlit.app/) · [API on Cloud Run](https://churn-api-995576020018.us-central1.run.app/docs)
+**Live:** [Decision Intelligence UI](https://churn.ameyparmarthi.com/) (React: per-customer model attributions, suggested actions, one-click executive summary) · [Streamlit dashboard](https://amey-churn-predictor.streamlit.app/) · [API on Cloud Run](https://churn-api-995576020018.us-central1.run.app/docs)
+
+**Product and delivery docs:** [PRD](docs/PRD.md) · [Decision log](docs/decisions.md) · [Customer deployment playbook](docs/customer-deployment-playbook.md) · [Evals](evals/README.md)
 
 ---
 
@@ -19,23 +21,25 @@ This project goes beyond model accuracy. It demonstrates full-stack ML system de
 | Metric | Value | Lift |
 |---|---:|---:|
 | ROC-AUC (time-based holdout) | **0.9660** | **1.9x** vs random (0.50) |
-| PR-AUC | **0.5392** | **43.5x** vs base rate (1.24% holdout) |
-| Precision @ top-10k contacts | **18.0%** | **3x** vs overall churn rate |
+| PR-AUC | **0.5392** | **43.4x** vs base rate (1.24% holdout) |
+| Precision @ top-10k contacts | **18.0%** | **14.5x** vs holdout churn rate |
 | Recall @ top-10k contacts | **75.0%** | — |
-| ROI-optimal policy net ROI | **$17,666** (1,478 users targeted) | — |
-| Outreach policy net savings | **~$12,200** (10,000 users targeted) | — |
+| ROI-optimal threshold (API default), simulated net value | **$17,666** per cycle (1,478 contacts, net ROI 239%) | — |
+| Tiered top-10k ($5 incentive for top 1,478, $0.50 nudge for the rest), simulated net value | **$24,306** per cycle | — |
 
-### Scaling: 31 GB to Production
+Dollar figures are simulated on the 193,205-subscriber validation window under documented assumptions ($120 per save, $5 per contact, 20% save rate), not realised revenue.
 
-The full ~31 GB KKBox dataset is processed end-to-end — not sampled, not approximated. Every scaling decision is documented with trade-offs and a web-scale migration path.
+### Scaling: 33 GB to Production
+
+The full ~33 GB KKBox dataset is processed end-to-end — not sampled, not approximated. Every scaling decision is documented with trade-offs and a web-scale migration path.
 
 | Stage | Size | Tool | Why |
 |---|---:|---|---|
-| Raw CSVs | 31 GB | DuckDB streaming | pandas would OOM on 29 GB `user_logs.csv` |
-| Parquet (ZSTD) | ~10 GB | DuckDB + column pruning | 3.4x compression; read only the columns you need |
-| Aggregated features | ~500 MB | DuckDB 2-stage SQL | 13x reduction via daily pre-aggregation |
-| ML-ready table | 118 MB | pandas joins | Small enough post-agg; pandas ecosystem wins |
-| Champion model training | ~3 min | LightGBM + FLAML | Best PR-AUC across 12 models, 8x faster than deep learning |
+| Raw CSVs | 32.7 GB | DuckDB streaming | pandas would OOM on the 30.5 GB `user_logs.csv` |
+| Parquet (ZSTD) | 10.7 GB | DuckDB + column pruning | 3.1x compression; read only the columns you need |
+| Aggregated features | 534 MB | DuckDB 2-stage SQL | 394 MB log + 140 MB transaction features via daily pre-aggregation |
+| ML-ready table | 123 MB | pandas joins | 992,931 rows; small enough post-agg that the pandas ecosystem wins |
+| Champion model training | ~3 min | LightGBM + FLAML | Best PR-AUC across 12 experiments; 8-11x faster than FT-Transformer and TabNet |
 
 > **Deep dive:** [`notebooks/08_scaling_prototype.ipynb`](notebooks/08_scaling_prototype.ipynb) — full trade-off analysis, DuckDB vs Spark rationale, and architecture blueprint for scaling to billions of rows.
 
@@ -69,8 +73,8 @@ Every subscription business faces the same three questions:
 | Question | This System's Answer |
 |---|---|
 | **Who is likely to churn?** | Ranked churn probability score for every subscriber |
-| **Who should we target, given budget constraints?** | Hybrid policy: ops-driven top-K or ROI-optimal threshold |
-| **What is the expected financial impact?** | Simulated net ROI under configurable cost assumptions |
+| **Who should we target, given budget constraints?** | ROI-optimal threshold by default; top-K when contact capacity is fixed |
+| **What is the expected financial impact?** | Simulated net value under configurable cost assumptions |
 
 **Core design principle:** *Model probability → Decision policy → Financial outcome.*
 
@@ -86,26 +90,28 @@ Traditional ML projects optimize ROC-AUC. This system optimizes **business ROI**
 
 | Property | Value |
 |---|---:|
-| Raw size | ~31 GB |
-| Processed model table | ~1M+ rows |
+| Raw size | 32.7 GB (CSV) |
+| Processed model table | 992,931 rows, 38 model features |
 | Validation set | 193,205 rows |
-| Churn rate (full dataset) | ~6% |
-| Churn rate (time-based valid) | 1.2% |
+| Churn rate (full model table) | 6.4% |
+| Churn rate (time-based valid) | 1.24% (2,402 churners) |
 | Time range | Jan 2015 – Feb 2017 |
-| Holdout window | Feb 2017 (chronological) |
+| Holdout window | Latest 20% by `txn_last_date` (after 2017-02-24) |
 
-Large raw files are excluded from Git. The scored validation set and all champion artifacts are committed for reproducibility.
+Large raw files are excluded from Git. The champion bundle (`model.pkl`, `threshold.json`, `feature_list.json`, `metrics.json`) is committed; the scored validation set (`valid_scored.parquet`), `flaml_best_params.json` and the threshold sweep CSV are regenerated by the training and scoring scripts and gitignored. The FLAML parameters are also recorded in `reports/champion_metadata.json`.
 
 ### 2.2 Why Time-Based Split
 
-The champion evaluation uses a **chronological holdout** — train on everything up to Jan 31 2017, validate on Feb 2017. This simulates production: the model trains on historical data and predicts a future month it has never seen.
+The champion evaluation uses a **chronological holdout**: rows are split at the 80th percentile of `txn_last_date` (resolves to 2017-02-24). Train on subscribers whose last transaction is on or before the cutoff, validate on the 193,205 whose last transaction is later. This simulates production: the model trains on history and scores a later period it has never seen.
+
+> **Note:** the training script parses `YYYYMMDD` integers without a format string, so `metrics.json` stores the cutoff as `1970-01-01 00:00:00.020170224`. Order is preserved, so the split is still chronological; the label is cosmetic. The SageMaker run (Section 9) uses a fixed 2017-01-31 cutoff instead.
 
 | | Random Split (XGBoost) | Time-Based Holdout (Champion) | Champion Lift |
 |---|---:|---:|---:|
 | ROC-AUC | 0.9875 | **0.9660** | **1.9x** vs random (0.50) |
-| PR-AUC | 0.8771 | **0.5392** | **43.5x** vs base rate (1.24%) |
+| PR-AUC | 0.8771 | **0.5392** | **43.4x** vs base rate (1.24%) |
 
-Lower time-based numbers are more honest — random splits leak temporal patterns and inflate all metrics. The ~6% overall churn rate drops to ~1.2% in the Feb 2017 holdout, which is expected with time-based splits and exactly what makes evaluation realistic.
+Lower time-based numbers are more honest — random splits leak temporal patterns and inflate all metrics. The 6.4% overall churn rate drops to 1.24% in the time-based holdout, which is expected with time-based splits and exactly what makes evaluation realistic.
 
 ### 2.3 Data Pipeline
 
@@ -124,7 +130,7 @@ Eight numbered, independently runnable scripts — no notebook dependencies:
 
 **Key engineering decisions:**
 - Strict chronological ordering prevents future-signal leakage
-- Memory-aware processing for >31 GB raw files
+- Memory-aware processing for ~33 GB of raw files
 - DuckDB used for large-scale in-process SQL aggregation
 - All transformations are scriptable and reproducible
 
@@ -138,21 +144,21 @@ Eight numbered, independently runnable scripts — no notebook dependencies:
 
 ## 3. Model Benchmarking Results
 
-12 model architectures evaluated — from baselines through deep learning and AutoML. Full details in [`leaderboard.md`](leaderboard.md).
+12 experiments: majority and logistic-regression baselines, a decision tree, seven model families, a soft-vote ensemble and FLAML AutoML. The seven model families are below; full details in [`leaderboard.md`](leaderboard.md).
 
 Sorted by PR-AUC — the primary metric under class imbalance:
 
 | # | Model | PR-AUC | PR-AUC Lift | ROC-AUC | F1 | Train Time | Notes |
 |---:|---|---:|---:|---:|---:|---:|---|
-| 1 | LightGBM | 0.8887 | **14.3x** | 0.9894 | 0.7845 | ~3 min | Baseline config, scale_pos_weight |
-| 2 | XGBoost | 0.8771 | **14.1x** | 0.9875 | — | ~2 min | Baseline XGBoost |
-| 3 | CatBoost | 0.8737 | **14.1x** | 0.9865 | 0.7282 | ~3.7 min | GPU-accelerated, early stop |
-| 4 | FT-Transformer | 0.8214 | **13.2x** | 0.9824 | 0.6825 | ~23 min | 4-layer transformer, AMP, GPU |
-| 5 | Random Forest | 0.7935 | **12.8x** | 0.9782 | 0.5798 | ~5 min | One-hot, balanced_subsample |
-| 6 | NODE | 0.7719 | **12.4x** | 0.9737 | 0.5334 | ~11 min | 128 oblivious trees, GPU |
-| 7 | TabNet | 0.5233 | **8.4x** | 0.9085 | 0.3998 | ~32 min | 5 failed runs before convergence |
+| 1 | LightGBM | 0.8887 | **13.9x** | 0.9894 | 0.7845 | ~3 min | Baseline config, scale_pos_weight |
+| 2 | XGBoost | 0.8771 | **13.7x** | 0.9875 | — | ~2 min | Baseline XGBoost |
+| 3 | CatBoost | 0.8737 | **13.7x** | 0.9865 | 0.7282 | ~3.7 min | GPU-accelerated, early stop |
+| 4 | FT-Transformer | 0.8214 | **12.9x** | 0.9824 | 0.6825 | ~23 min | 4-layer transformer, AMP, GPU |
+| 5 | Random Forest | 0.7935 | **12.4x** | 0.9782 | 0.5798 | ~5 min | One-hot, balanced_subsample |
+| 6 | NODE | 0.7719 | **12.1x** | 0.9737 | 0.5334 | ~11 min | 128 oblivious trees, GPU |
+| 7 | TabNet | 0.5233 | **8.2x** | 0.9085 | 0.3998 | ~32 min | 5 failed runs before convergence |
 
-> Leaderboard metrics use random splits for comparison speed. **Champion evaluation uses the time-based holdout** — the only number that matters for production.
+> Leaderboard metrics use random splits for comparison speed; lift is PR-AUC over the 6.39% random-split churn rate. **Champion evaluation uses the time-based holdout** — the only number that matters for production.
 
 ### 3.1 Class Imbalance Strategy
 
@@ -178,16 +184,16 @@ PR-AUC directly measures how well the model concentrates true churners at the to
 | Metric | Value | Lift |
 |---|---:|---:|
 | ROC-AUC | 0.9660 | **1.9x** vs random (0.50) |
-| PR-AUC | **0.5392** | **43.5x** vs base rate (1.24%) |
+| PR-AUC | **0.5392** | **43.4x** vs base rate (1.24%) |
 | F1 @ threshold 0.5 | 0.3678 | — |
-| Precision @ top-5k | 26.9% | **21.7x** vs base rate |
+| Precision @ top-5k | 26.9% | **21.6x** vs base rate |
 | Precision @ top-10k | **18.0%** | **14.5x** vs base rate |
 | Precision @ top-20k | 10.9% | **8.8x** vs base rate |
 | Recall @ top-5k | 56.0% | — |
 | Recall @ top-10k | **75.0%** | — |
 | Recall @ top-20k | 90.7% | — |
 
-**Churn concentration lift:** Top-10k churn rate 18% vs. base rate ~6% — roughly **3x concentration** of churners over random selection. On the time-based holdout (1.24% churn), PR-AUC lift is **43.5x** over random — the model ranks churners 43x better than chance.
+**Churn concentration lift:** on the time-based holdout (1.24% churn), the top-10k contacts churn at 18.0%, a **14.5x concentration** over random selection, and capture 75% of all churners. PR-AUC lift is **43.4x** over random.
 
 ### 4.2 Why This Model Won
 
@@ -204,67 +210,53 @@ Artifacts frozen in `artifacts/champion/` — see [`artifacts/champion/notes.md`
 
 ### 5.1 Decision Policy Engine
 
-Located in `src/serving/policy.py`. The production policy is **hybrid**:
+`artifacts/champion/deployment_policy_v2.json` defines three score tiers. `src/serving/policy.py` applies them and `src/serving/api.py` returns the tier as `action` with every score:
 
-```json
-{
-  "primary_policy":   { "type": "top_k",    "k": 10000 },
-  "secondary_policy": { "type": "threshold", "threshold": 0.68 }
-}
-```
+| Action | Score | Channel | Validation contacts (churners) |
+|---|---|---|---:|
+| `contact_now` | ≥ 0.68 (ROI-max cutoff) | Personal outreach, $5 incentive, 20% assumed save rate | 1,478 (1,044) |
+| `nudge` | 0.2058–0.68 (down to the 10,000th rank) | Email or in-app, $0.50, 12% illustrative save rate | 8,522 (757) |
+| `monitor` | < 0.2058 | None; re-score next cycle | 183,205 (601) |
 
-#### Policy 1 — Ops-Friendly Top-K *(primary)*
+Three ways to spend the same scores:
 
-Target the **top-10,000 highest-risk subscribers** by predicted probability, each scoring cycle.
+| Policy | Rule | Contacts | Precision | Recall | Simulated net / cycle |
+|---|---|---:|---:|---:|---:|
+| **ROI-optimal threshold** *(API default `churn_label`)* | score ≥ 0.68 | 1,478 | 70.6% | 43.5% | **$17,666** |
+| Capacity top-K, one channel | top 10,000 (≈ score ≥ 0.2058) | 10,000 | 18.0% | 75.0% | **−$6,776** |
+| **Tiered (policy v2)** | `contact_now` + `nudge` | 10,000 | 18.0% | 75.0% | **$24,306** |
 
-| Metric | Value | Lift |
-|---|---:|---:|
-| Contacts per cycle | 10,000 (fixed) | — |
-| Precision | 18.0% | **3x** vs base rate |
-| Recall | 75.0% | — |
-| Equiv. threshold | ~0.21 | — |
+At the default assumptions ($120 per save, $5 per contact, 20% save rate), giving the $5 incentive to all 10,000 loses money: below the top 1,478, precision is too low to cover the contact cost. That finding is why v2 replaced v1 (`deployment_policy.json`, top-K primary), which is kept for the record. The nudge cost and save rate are illustrative until a holdout measures them ([decision log](docs/decisions.md)).
 
-**Why top-K is preferred operationally:**
-- Contact volume is predictable and budget-bounded every month
+`/predict_batch?policy=top_k&k=...` still ranks a batch for teams that work a fixed-size call list:
+- Contact volume is predictable and budget-bounded every cycle
 - No threshold recalibration needed as score distributions shift over time
-- Highest-risk users are always selected
 - Simple governance: rank and send
-
-#### Policy 2 — ROI-Optimal Threshold *(fallback)*
-
-Used when operational capacity is not the binding constraint — e.g., automated low-cost interventions.
-
-| Metric | Value |
-|---|---:|
-| Threshold | 0.68 |
-| Contacts | 1,478 |
-| Precision | 70.6% |
-| Recall | 43.5% |
-| Estimated net ROI | **$17,666** |
-
-`PolicyDecision` objects include: churn probability, action (`target` / `no_target`), policy used, threshold, rank, and metadata.
 
 ### 5.2 ROI Simulation
 
 #### Framework
 
 ```
-Net ROI = (TP x save_rate x churn_cost) - (N_targeted x intervention_cost)
+Net value = (TP x save_rate x value_per_save) - (N_targeted x cost_per_contact)
+Net ROI   = Net value / (N_targeted x cost_per_contact)
 
 Where:
-  TP                = true positives (targeted users who would have churned)
-  save_rate         = fraction of targeted churners successfully retained
-  churn_cost        = revenue lost per unretained churner
-  intervention_cost = cost per outreach contact
+  TP               = true positives (targeted users who would have churned)
+  save_rate        = fraction of targeted churners successfully retained
+  value_per_save   = revenue retained per saved churner
+  cost_per_contact = cost per outreach contact
 ```
+
+At the ROI-optimal threshold: value retained $25,056, spend $7,390, net $17,666, net ROI 239% ($3.39 retained per $1 spent). Break-even save rate 5.9%; break-even contact cost $16.95.
 
 #### Scenario Comparison
 
-| Scenario | Cost/contact | Save rate | Value/save | Net result |
-|---|---:|---:|---:|---:|
-| **Outreach** (email/SMS/nudge) | $0.50 | 12% | $80 | **~$12,200** |
-| **Incentive** (discount/offer) | $10.00 | 20% | $60 | Cost-sensitive |
-| **ROI-optimal threshold** | $5.00 | 20% | $120 | **$17,666** |
+| Scenario | Cost/contact | Save rate | Value/save | Contacts | Net result |
+|---|---:|---:|---:|---:|---:|
+| **ROI-optimal threshold** | $5.00 | 20% | $120 | 1,478 | **$17,666** |
+| **Outreach** (email/SMS/nudge) | $0.50 | 12% | $80 | 10,000 | **$12,290** |
+| **Incentive** (discount/offer) | $10.00 | 20% | $60 | any | Loses money unless precision > 83% |
 
 Full scenario documentation: [`reports/business_assumptions.md`](reports/business_assumptions.md)
 
@@ -274,7 +266,7 @@ Full scenario documentation: [`reports/business_assumptions.md`](reports/busines
 
 | Output | Description |
 |---|---|
-| `reports/threshold_sweep.csv` | Per-threshold: precision, recall, F1, Precision@K, ROI, n_targeted |
+| `reports/threshold_sweep.csv` | Per-threshold: precision, recall, F1, Precision@K, ROI, n_targeted (generated, gitignored) |
 | `artifacts/champion/threshold.json` | Selected policy parameters (both policies) |
 | `reports/threshold_vs_precision_recall.png` | Precision / Recall / F1 vs. threshold |
 | `reports/threshold_vs_roi.png` | Expected ROI vs. threshold with annotated peak |
@@ -382,9 +374,10 @@ uvicorn src.serving.api:app --reload
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/health` | GET | Model load status, artifact paths, feature count, default threshold |
-| `/predict` | POST | Single-record churn probability + threshold action label |
-| `/predict_batch` | POST | Batch scoring via JSON list or CSV file upload — threshold or top-K policy |
+| `/` | GET | Service info and the 38-feature input contract |
+| `/health` | GET | Model load status, artifact paths, feature count, default threshold, policy version |
+| `/predict` | POST | Single-record churn probability, threshold label, policy `action`, top-5 TreeSHAP attributions, missing-data warnings |
+| `/predict_batch` | POST | Batch scoring via JSON list or CSV file upload (≤ 50,000 records) — threshold or top-K policy, plus output drift |
 
 ### 7.2 Two Serving Policies
 
@@ -400,27 +393,29 @@ POST /predict_batch
 { "records": [...], "policy": "top_k", "k": 10000 }
 ```
 
-Returns per-record: `churn_probability`, `churn_label`, `rank` (top-K only), `policy_used`, `threshold_used`.
+Returns per-record: `churn_probability`, `churn_label`, `action`, `rank` (top-K only), `policy_used`, `threshold_used`. `/predict` adds `explanations`, `base_value`, `n_missing_features` and `warnings`; batch responses add `n_mostly_missing` and `score_drift`.
 
 **CSV batch upload** is also supported via multipart form upload to `/predict_batch` — enabling analyst-driven batch scoring without a pipeline dependency.
 
 ### 7.3 Design Notes
 
 - Pydantic input/output models enforce contract at the API boundary — `PredictRequest`, `BatchPredictRequest`, `BatchPredictResponse`
-- Feature alignment at inference time: missing columns filled with `NaN`, extra columns silently dropped — robust to schema drift
+- Feature alignment at inference time: missing columns filled with `NaN`, extra columns dropped. The model reads missing activity as churn (an empty record scores 0.99), so `/predict` warns when more than half the features are missing and batches report `n_mostly_missing`
+- Guardrails: `threshold` must be in [0, 1] (422), batches over 50,000 records return 413, and setting the `API_KEY` env var requires an `X-API-Key` header on the POST endpoints (`/health` stays open for probes). The public demo runs without a key
+- Output drift without labels: batches of ≥ 1,000 records return `score_drift`, the PSI of the batch's tier mix against validation (< 0.1 stable, < 0.25 moderate, else significant)
 - Equivalent threshold for the configured top-K is surfaced in the response when it matches `threshold.json`, giving every top-K batch run a threshold anchor for auditability
 
 ### 7.4 Decision Intelligence UI (`frontend/`)
 
 A React + Vite + TypeScript front end for executives and retention operators, live at **https://churn.ameyparmarthi.com/**. It calls this API and falls back to a clearly labelled Demo Mode while Cloud Run cold-starts. Details: [frontend/README.md](frontend/README.md) · design notes: [docs/frontend-architecture.md](docs/frontend-architecture.md) · walkthrough: [docs/demo-script.md](docs/demo-script.md).
 
-- **Why this score:** each scored customer shows up to five risk drivers (e.g. "Membership lapsed 25 days ago") and a suggested action for their risk band: personal outreach with an incentive at ≥ 0.68, a low-cost email or in-app nudge at 0.2058–0.68, otherwise monitor. Batch results add a top-reasons column. The drivers are **indicative, from a transparent rule of thumb, not the LightGBM model's attributions**. The UI says so, and it shows the rule of thumb's estimate next to the model's score.
-- **One-click executive summary:** the policy simulator turns the current scenario into a one-page report covering the recommendation, key numbers, a contact plan by risk band at your subscriber count, assumptions, risks and caveats. It prints to PDF or downloads as Markdown. Dollar figures are simulated on the Feb-2017 validation window, not realised revenue.
+- **Why this score:** with the live API, each scored customer shows the model's top-5 TreeSHAP attributions in probability points, labelled as model attributions, and any missing-data warning. In Demo Mode, and in the batch top-reasons column, the drivers are **indicative, from a transparent rule of thumb, not the model's attributions**, and the UI says so. Each score also gets the suggested action for its tier: personal outreach with an incentive at ≥ 0.68, a low-cost email or in-app nudge at 0.2058–0.68, otherwise monitor.
+- **One-click executive summary:** the policy simulator turns the current scenario into a one-page report covering the recommendation, key numbers, a contact plan by risk band at your subscriber count, assumptions, risks and caveats. It prints to PDF or downloads as Markdown. Dollar figures are simulated on the 193,205-subscriber validation window and scaled to your base, not realised revenue.
 - **Batch CSV export** columns: `row_index, rank, churn_probability, label_at_0_68, in_top_k, risk_band, suggested_action, top_reasons, <input columns>`. The last three named columns are new ([CHANGELOG](CHANGELOG.md)).
 
-### 7.5 Proposed Next Step: Model Explanations in the API
+### 7.5 Model Explanations in the API
 
-*Not implemented; the API is unchanged.* Add an optional `explanations` field to `/predict` and `/predict_batch` items: the top-N per-record SHAP contributions from the champion, via `MODEL.predict(X, pred_contrib=True)` on the existing `LGBMClassifier`. That returns exact TreeSHAP log-odds contributions plus a bias column, with no `shap` dependency at serving time. Make it opt-in (e.g. `explain=true&top_n=5`) so large batch uploads don't pay for it by default. When the field is present, the front end would show these real attributions instead of the rule-of-thumb drivers, and keep the rule of thumb for Demo Mode only.
+`/predict` returns the top 5 per-record TreeSHAP contributions from the champion via `MODEL.predict(X, pred_contrib=True)` on the existing `LGBMClassifier`: exact log-odds contributions plus a bias term (`base_value`), with no `shap` dependency at serving time. All 38 contributions plus the base sum to the score's log-odds (tested). The cost is real: p50 latency goes from 3.0 ms to 51 ms in-process (146 trees × 1,212 leaves), so callers that only need the score pass `"explain": false`, and `/predict_batch` never explains. They explain the score, not what causes churn.
 
 ---
 
@@ -437,7 +432,7 @@ A custom wrapper at `src/utils/mlflow_utils.py` provides safe, robust logging: n
 | Parameter | Champion Value | Purpose |
 |---|---|---|
 | `cutoff_policy` | `quantile_0.8` | Records the split that *actually ran* — not just the intended config |
-| `cutoff_date` | `2016-...` | Exact data boundary applied to this run |
+| `cutoff_date` | `1970-01-01 00:00:00.020170224` | Data boundary applied to this run (2017-02-24, parsed without a date format; see Section 2.2) |
 | `feature_version` | `model_table_v1` | Ties each run to a specific data pipeline output |
 | `lgbm_params.num_leaves` | `1212` | Nested hyperparams flattened — individually queryable in the UI |
 | `lgbm_params.learning_rate` | `0.0358` | All FLAML params captured without manual unpacking |
@@ -535,7 +530,7 @@ Only one job was run because the purpose was to demonstrate the workflow, not re
 | PR-AUC | **0.5392** | 0.4707 |
 | F1 | 0.3678 | **0.4658** |
 
-- **ROC-AUC / PR-AUC:** Local model ranks churners better. Differences stem from data subset fraction (cost control) and quantile fallback split shifting the validation distribution
+- **Not like-for-like:** the SageMaker job trains on a 10% random sample (`src/data/08_data_subset_for_sagemaker.py`) and splits at a fixed 2017-01-31 cutoff with correctly parsed dates; the local champion uses the full table and the 2017-02-24 quantile cutoff. The validation sets differ, so this table checks the cloud workflow, not model parity
 - **F1 reversal:** Local F1 uses a fixed 0.5 threshold. F1 is sensitive to the score distribution near the cutoff. ROC-AUC and PR-AUC are threshold-invariant and remain the more reliable cross-environment metrics
 
 ### 9.4 Workflow Architecture
@@ -566,7 +561,7 @@ register_model.py  ───────────────►  SageMaker M
 
 ## 10. Scaling: Prototype to Production
 
-The complete ~31 GB KKBox dataset was processed end-to-end — not sampled, not approximated. This section documents the scaling decisions, trade-offs, and the architecture blueprint for web-scale deployment.
+The complete ~33 GB KKBox dataset was processed end-to-end — not sampled, not approximated. This section documents the scaling decisions, trade-offs, and the architecture blueprint for web-scale deployment.
 
 Full walkthrough with executable code: [`notebooks/08_scaling_prototype.ipynb`](notebooks/08_scaling_prototype.ipynb)
 
@@ -574,11 +569,11 @@ Full walkthrough with executable code: [`notebooks/08_scaling_prototype.ipynb`](
 
 | Stage | Size | Tool | Why This Tool |
 |---|---:|---|---|
-| Raw CSVs | 31 GB | DuckDB streaming | pandas would OOM on 29 GB `user_logs.csv` |
-| Parquet (compressed) | ~10 GB | DuckDB + ZSTD | 3.4x compression; column pruning for fast reads |
-| Aggregated features | ~500 MB | DuckDB 2-stage SQL | 13x intermediate reduction via daily pre-agg |
-| ML-ready model table | 118 MB | pandas joins | Small enough post-aggregation; pandas ecosystem wins |
-| Trained model | ~3 min | LightGBM + FLAML | Fastest and best-performing across 12 architectures |
+| Raw CSVs | 32.7 GB | DuckDB streaming | pandas would OOM on the 30.5 GB `user_logs.csv` |
+| Parquet (compressed) | 10.7 GB | DuckDB + ZSTD | 3.1x compression; column pruning for fast reads |
+| Aggregated features | 534 MB | DuckDB 2-stage SQL | 394 MB log + 140 MB transaction features via daily pre-agg |
+| ML-ready model table | 123 MB | pandas joins | 992,931 rows; small enough post-aggregation that the pandas ecosystem wins |
+| Trained model | ~3 min | LightGBM + FLAML | Best PR-AUC across 12 experiments |
 
 ### 10.2 Key Scaling Decisions & Trade-offs
 
@@ -588,7 +583,7 @@ Full walkthrough with executable code: [`notebooks/08_scaling_prototype.ipynb`](
 | **File-backed DuckDB** | Spill-to-disk safety | In-memory mode | In-memory DuckDB crashed on Windows with 8.7 GB Parquet |
 | **2-stage aggregation** | Daily pre-agg → user rollup | Single GROUP BY | Single-stage on 400M rows exceeded memory budget |
 | **Parquet + ZSTD** | Better compression, column pruning | CSV / Snappy | Output stored long-term; read speed is what matters |
-| **LightGBM over deep learning** | 3 min train, best PR-AUC | FT-Transformer (23 min) | Neural nets scored worse on every metric and cost 8x more time |
+| **LightGBM over deep learning** | 3 min train, best PR-AUC | FT-Transformer (23 min) | Neural nets scored worse on every metric and took 8-11x longer (FT-Transformer 23 min, TabNet 32 min) |
 
 ### 10.3 Web-Scale Architecture Blueprint
 
@@ -622,10 +617,10 @@ Orchestration:
 
 | Scenario | Users | Raw Data | Model Table | Compute Engine |
 |---|---:|---:|---:|---|
-| **Current (KKBox)** | 1M | 31 GB | 118 MB | DuckDB (local) |
-| **10x** | 10M | 310 GB | 1.2 GB | DuckDB (local) |
+| **Current (KKBox)** | 1M | 33 GB | 123 MB | DuckDB (local) |
+| **10x** | 10M | 330 GB | 1.2 GB | DuckDB (local) |
 | **100x** | 100M | 3 TB | 12 GB | Spark SQL (cluster) |
-| **1000x (web-scale)** | 1B | 31 TB | 115 GB | BigQuery / Spark |
+| **1000x (web-scale)** | 1B | 33 TB | ~123 GB | BigQuery / Spark |
 
 The 2-stage aggregation pattern, Parquet columnar format, and LightGBM's histogram-based training all scale linearly — the architecture doesn't require redesign, only swapping the execution engine.
 
@@ -633,7 +628,7 @@ The 2-stage aggregation pattern, Parquet columnar format, and LightGBM's histogr
 
 ## 11. Monitoring Plan
 
-This section describes the monitoring strategy that would apply once the model serves live predictions. No live monitoring is deployed (there is no production endpoint), but the architecture is designed to support it.
+The API is live on Cloud Run with structured request logging (batch size, mean score, inference latency). Two signals run in the API today: output drift (`score_drift`, PSI of each ≥ 1,000-record batch's tier mix vs validation) and the missing-data guardrail (`n_mostly_missing`, `warnings`). The rest of the layer below is designed, not deployed; the `#/mlops` page in the UI shows it with mock data.
 
 ### 11.1 What to Monitor
 
@@ -642,7 +637,7 @@ This section describes the monitoring strategy that would apply once the model s
 | **Input data** | Feature distribution drift | PSI (Population Stability Index) on each feature, computed monthly | Alert if PSI > 0.20 on any top-10 SHAP feature |
 | **Input data** | Missing value rate spike | Track null fraction per feature per scoring batch | Alert if null rate exceeds 2x historical baseline |
 | **Input data** | Volume anomaly | Row count per scoring cycle | Alert if batch size deviates >20% from expected |
-| **Model output** | Score distribution shift | Compare monthly prediction histogram vs. training baseline (KS test or PSI) | Alert if distribution shifts significantly — may indicate concept drift |
+| **Model output** | Score distribution shift | PSI of the batch tier mix vs validation, **live** in `/predict_batch` | Investigate at `moderate_shift` (PSI ≥ 0.1); hold the campaign at `significant_shift` (≥ 0.25) |
 | **Model output** | Churn rate vs. predicted rate | Compare predicted positive rate to observed churn rate (with label delay) | Persistent gap suggests calibration decay |
 | **Business** | Precision@K decay | Track actual churn rate in top-K targeted users once labels arrive (~30-day delay) | Retrain if Precision@K drops below 1.5x base rate |
 | **Business** | ROI tracking | Compare simulated ROI vs. actual campaign outcomes | Adjust cost assumptions or retrain if ROI underperforms projection by >30% |
@@ -674,12 +669,12 @@ Monitoring priority:
 |---|---|
 | **Data & compute** | NumPy, Pandas, PyArrow, DuckDB |
 | **ML — gradient boosting** | LightGBM, XGBoost, CatBoost |
-| **ML — deep learning** | PyTorch, pytorch-tabnet (TabNet, FT-Transformer, NODE) |
+| **ML — deep learning** | PyTorch (custom FT-Transformer and NODE), pytorch-tabnet (TabNet) |
 | **AutoML** | FLAML |
 | **Experiment tracking** | MLflow |
 | **Explainability** | SHAP |
 | **Serving** | FastAPI, uvicorn |
-| **Cloud / MLOps** | AWS SageMaker (Training Jobs, Model Registry), boto3, S3 |
+| **Cloud / MLOps** | Google Cloud Run (API, keyless GitHub Actions deploy via Workload Identity Federation), Vercel (React UI), AWS SageMaker (Training Jobs, Model Registry), boto3, S3 |
 | **Dashboard / UI** | Streamlit; React + Vite + TypeScript + Tailwind, Recharts (`frontend/`) |
 | **Visualization** | Matplotlib, Seaborn |
 | **Utilities** | scikit-learn, joblib, tqdm, fsspec |
@@ -700,7 +695,7 @@ ai-customer-retention-mlops/
 |
 |-- data/                           # Raw, processed, sample data  (large files gitignored)
 |-- notebooks/
-|   |-- 08_scaling_prototype.ipynb  # Step 8: Scaling the prototype to full dataset (31 GB)
+|   |-- 08_scaling_prototype.ipynb  # Step 8: Scaling the prototype to full dataset (33 GB)
 |   |-- 01-04_*_eda.py             # Exploratory analysis scripts
 |-- reports/                        # Business assumptions, threshold sweep CSV, plots
 |-- scripts/
@@ -711,18 +706,24 @@ ai-customer-retention-mlops/
 |   |-- executive_summary.md         # AI PM narrative: problem, impact, rollout, A/B test
 |   |-- frontend-architecture.md     # Risk-driver and executive-report flows
 |   |-- demo-script.md               # 3-5 minute walkthrough + interview answers
+|   |-- deploy-cloud-run.md          # Cloud Run deployment runbook
+|   |-- PRD.md                       # Problem, users, success metrics, scope
+|   |-- decisions.md                 # Decision log (ADRs)
+|   |-- customer-deployment-playbook.md  # Data contract, integration, security, 30/60/90 pilot
+|   |-- model_registry.md            # Model registry notes
 |   |-- architecture.png             # System architecture diagram
 |   `-- KKBox Churn Prediction Capstone Project Proposal.pdf
 |-- artifacts/
 |   `-- champion/                   # Frozen model bundle
 |       |-- model.pkl
 |       |-- threshold.json          # Decision policy (ROI-optimal + ops top-K)
-|       |-- deployment_policy.json  # Hybrid policy definition
+|       |-- deployment_policy_v2.json  # Tiered policy the API serves (contact_now / nudge / monitor)
+|       |-- deployment_policy.json  # v1, superseded (top-K primary)
 |       |-- metrics.json
 |       |-- feature_list.json
-|       |-- flaml_best_params.json
+|       |-- flaml_best_params.json  # generated, gitignored
 |       |-- roi_policy.json
-|       |-- valid_scored.parquet    # Scored validation set (msno, y_true, y_proba)
+|       |-- valid_scored.parquet    # Scored validation set (msno, y_true, y_proba); generated, gitignored
 |       `-- notes.md
 |
 |-- src/
@@ -733,19 +734,21 @@ ai-customer-retention-mlops/
 |   |   `-- shap_analysis.py        # SHAP TreeExplainer -- beeswarm + feature ranking
 |   |-- serving/
 |   |   |-- api.py                  # FastAPI inference service  (GET /health, POST /predict, POST /predict_batch)
-|   |   |-- policy.py               # PolicyDecision engine  (top-K + threshold)
-|   |   |-- app_streamlit.py        # Streamlit executive dashboard
-|   |   `-- test_policy.py
+|   |   |-- policy.py               # Tier assignment, output drift (PSI), threshold and top-K helpers
+|   |   |-- app_streamlit.py        # Streamlit executive dashboard (local)
+|   |   |-- app_streamlit_cloud.py  # Streamlit Community Cloud app
+|   |   |-- test_api.py             # API contract, explanations, guardrails
+|   |   `-- test_policy.py          # Policy tiers vs artifacts, drift
 |   `-- utils/
 |       |-- mlflow_utils.py          # Safe MLflow logging (nested flatten, artifact handling)
 |       `-- run_logger.py
 |
+|-- evals/                          # Eval harness, reference records, timestamped results; see evals/README.md
 |-- leaderboard.md
 |-- requirements.txt
 |-- requirements-dev.txt
 |-- Dockerfile                        # Production container for FastAPI serving
 |-- requirements-serve.txt            # Minimal serving dependencies
-|-- render.yaml                       # Render.com deployment config
 |-- CHANGELOG.md
 |-- LICENSE
 `-- README.md
@@ -842,14 +845,17 @@ docker run -p 8000:8000 churn-api
 ### 14.9 Run tests
 
 ```bash
-pytest src/serving/test_api.py -v
-# 16 tests: health, single predict, batch CSV, edge cases
+python -m pytest src/serving -v
+# 41 tests: API contract, explanations, guardrails, policy tiers vs artifacts, drift
 
-cd frontend && npm run typecheck && npm test && npm run build
-# 54 vitest tests: ROI math, scenarios, parsing, risk drivers, executive report
+python -m evals.run                   # offline: economics, lift, calibration
+python -m evals.run --api-url local   # + parity, contract and latency against the in-process API
+
+cd frontend && npm run typecheck && npm run lint && npm test && npm run build
+# 62 vitest tests: ROI math, policy comparison, scenarios, parsing, risk drivers, attributions, executive report
 ```
 
-CI (`.github/workflows/deploy.yml`) runs both suites on every push and PR to `main`.
+CI (`.github/workflows/deploy.yml`) runs the tests and the local eval on every push and PR to `main`, and the eval again against Cloud Run after each deploy. Methodology and latest results: [evals/README.md](evals/README.md).
 
 ### 14.10 Generate leaderboard
 
@@ -860,7 +866,12 @@ python scripts/generate_leaderboard.py
 ### 14.11 Use the policy engine directly
 
 ```python
-from src.serving.policy import apply_threshold, apply_topk_to_batch
+from pathlib import Path
+from src.serving.policy import apply_threshold, apply_topk_to_batch, assign_action, load_policy
+
+# Tiered policy v2 (what the API returns as `action`)
+policy = load_policy(Path("artifacts/champion/deployment_policy_v2.json"))
+assign_action(0.45, policy)  # 'nudge'
 
 # Single-user threshold policy
 decision = apply_threshold(prob=0.82, threshold=0.68)
@@ -889,21 +900,22 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 | Cloud training validation (SageMaker) | ✅ Complete |
 | Scaling analysis & production blueprint | ✅ Complete ([notebook](notebooks/08_scaling_prototype.ipynb)) |
 | Structured API logging | ✅ Complete (request/response, latency, startup) |
-| API test suite (pytest) | ✅ Complete (16 tests: health, predict, batch, edge cases) |
+| API and policy test suite (pytest) | ✅ Complete (41 tests) |
+| Eval harness (economics, calibration, parity, contract, latency) | ✅ Complete (`evals/`, gates CI and every deploy) |
 | Docker Compose (one-command startup) | ✅ Complete (`docker-compose.yml`) |
-| Monitoring implementation | 📋 Designed (Section 11) |
+| Monitoring implementation | 🟡 Partial: output drift and missing-data guardrail live in the API; the rest designed (Section 11) |
 | Streamlit executive dashboard | ✅ Complete (`src/serving/app_streamlit.py`) |
-| React decision UI: indicative risk drivers, suggested actions, executive summary report | ✅ Complete (`frontend/`, 54 tests in CI) |
-| Per-customer model attributions from the API | 📋 Proposed (Section 7.5) |
-| Dockerfile + cloud deployment | ✅ Complete (`Dockerfile`, `render.yaml`, HEALTHCHECK) |
+| React decision UI: model attributions (live) or indicative drivers (demo), suggested actions, policy comparison, executive summary report | ✅ Complete (`frontend/`, 62 tests in CI, Vercel) |
+| Per-customer model attributions from the API | ✅ Complete (Section 7.5) |
+| Dockerfile + cloud deployment | ✅ Complete (`Dockerfile` with HEALTHCHECK; Cloud Run via GitHub Actions + Workload Identity Federation) |
 | End-to-end pipeline orchestrator | 📋 Planned |
 
 ### 15.2 Next Steps
 
 | Priority | Item | Impact |
 |---:|---|---|
-| 1 | **Model explanations in the API** — optional `explanations` field on `/predict` and `/predict_batch` with top-N SHAP contributions (`pred_contrib=True`); the UI then shows these instead of its rule-of-thumb drivers | Operators see why the *model* flagged a customer, not an approximation |
-| 2 | **CI/CD pipeline hardening** — expand GitHub Actions workflow with automated testing and staging gates | Adds production-grade deployment automation |
+| 1 | **Calibrate scores** — isotonic regression on a later window; the nudge tier (scores 0.21–0.68) churned at 8.9% on validation | Scores become usable as expected value, not just a ranking |
+| 2 | **Staging gate** — deploy to a staging revision, run `evals.run` against it, then shift traffic | No untested revision ever takes production traffic |
 | 3 | **Automated retraining pipeline** — scheduled retrain on latest data window with MLflow-gated promotion | Closes the loop from monitoring signals to model refresh |
 | 4 | **A/B test simulation** — implement the treatment/control framework described in Section 6.5 to estimate causal uplift | Moves from predictive accuracy to true incremental business impact |
 
@@ -918,20 +930,21 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 - Time-based cross-validation that reflects production realities — and documents *why* random splits mislead
 - AutoML + manual model comparison with a governed, reproducible leaderboard
 - Threshold optimization tied directly to a business cost function, not ML metrics
-- Dual-policy decision engine with documented trade-offs between coverage and efficiency
-- Production REST API (FastAPI + Pydantic) exposing both policies with full request/response contracts
+- Tiered decision policy served from a versioned artifact, with documented trade-offs between coverage and efficiency
+- Production REST API (FastAPI + Pydantic): per-record TreeSHAP attributions, policy actions, input guardrails and output drift, with full request/response contracts
 - SHAP explainability layer producing auditable feature contributions from a tree ensemble
-- **Scaling narrative:** 31 GB processed end-to-end with documented trade-offs at every layer — storage (Parquet), compute (DuckDB), training (LightGBM), cloud (SageMaker) — plus a web-scale architecture blueprint for billion-row migration
+- **Scaling narrative:** 33 GB processed end-to-end with documented trade-offs at every layer — storage (Parquet), compute (DuckDB), training (LightGBM), cloud (SageMaker) — plus a web-scale architecture blueprint for billion-row migration
 
 ### For MLOps / Data Engineering Roles
 
 - Reproducible, script-driven data pipeline with clear stage separation — no notebook dependencies
-- **Scaling deep-dive** ([notebook](notebooks/08_scaling_prototype.ipynb)): 31 GB → 118 MB data funnel with 2-stage aggregation, DuckDB streaming SQL, memory-bounded processing, and documented decision trade-offs at every stage
+- **Scaling deep-dive** ([notebook](notebooks/08_scaling_prototype.ipynb)): 33 GB → 123 MB data funnel with 2-stage aggregation, DuckDB streaming SQL, memory-bounded processing, and documented decision trade-offs at every stage
 - Custom MLflow wrapper (`src/utils/mlflow_utils.py`) with nested param flattening, safe metric logging, and graceful artifact handling — not just a `mlflow.log_metric` call
 - Atomic run logging: model + scored validation data + downstream reports in one run, making every metric permanently traceable
 - Split method audit trail: `cutoff_policy` records what actually ran, not what was configured — production-grade reproducibility thinking
 - SHAP explainability pipeline (`src/evaluation/shap_analysis.py`) producing beeswarm plots and ranked feature CSV — model auditing built in, not bolted on
-- FastAPI serving layer with two policy modes, Pydantic contract enforcement, and CSV batch upload — separation of serving logic from model training
+- FastAPI serving layer with a versioned policy artifact, Pydantic contract enforcement, and CSV batch upload — separation of serving logic from model training
+- Eval harness (`evals/`) with timestamped results that gates CI and re-runs against every Cloud Run deploy: score parity, contract, latency, economics
 - AWS SageMaker Training Job with Script Mode — same champion config, managed infrastructure, S3 artifact packaging
 - SageMaker Model Registry integration — versioned, approval-gated model packages
 - Modular `src/` layout designed for CI/CD integration
@@ -941,7 +954,7 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 ### For Business / Analytics / Product Roles
 
 - ROI simulation framework connecting model Precision@K to net financial impact
-- Two defensible policies with documented trade-offs: coverage vs. per-contact efficiency
+- Two defensible policies with documented trade-offs: coverage vs. per-contact efficiency, including the finding that top-10K with a $5 incentive loses money and a tiered channel fixes it
 - Budget-bounded top-K targeting for predictable monthly operational load
 - Scenario modeling across intervention types: outreach vs. incentive offers
 - Business assumptions documented separately — not baked silently into model training

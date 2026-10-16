@@ -2,7 +2,7 @@
 
 How the Decision Intelligence UI (`frontend/`) explains a score and turns a policy scenario into a one-page executive report. Both features run entirely in the browser: no new dependencies, no backend or API changes, no database. Setup, routes and scripts are in [frontend/README.md](../frontend/README.md).
 
-Only the Score page calls the API (`/health`, `/predict`, `/predict_batch`). Every other page reads static validation data from `frontend/src/data/*.ts` (Feb-2017 window: 193,205 subscribers, 2,402 churners, 1.24% churn).
+Only the Score page calls the API (`/health`, `/predict`, `/predict_batch`). Every other page reads static validation data from `frontend/src/data/*.ts` (time-based validation window, last transaction after 2017-02-24: 193,205 subscribers, 2,402 churners, 1.24% churn).
 
 ---
 
@@ -25,7 +25,7 @@ score -> riskBand(p) -> { label, action }    src/pages/score/risk.ts
 
 ### 1.1 What the drivers are, and are not
 
-The drivers come from the transparent rule-of-thumb estimator (`demoEstimate`) that Demo Mode uses when the API is unreachable. They are **indicative, rule-of-thumb drivers, not the trained LightGBM model's attributions**, and the UI labels them that way in four places: the panel footer, the panel's info tooltip, the batch column header ("Top reasons (indicative)") and a caveat in the executive report. When the headline score comes from the model (live or recorded), the panel also shows the rule of thumb's own estimate next to the model's score, so any disagreement is visible.
+The drivers come from the transparent rule-of-thumb estimator (`demoEstimate`) that Demo Mode uses when the API is unreachable. They are **indicative, rule-of-thumb drivers, not the trained LightGBM model's attributions**, and the UI labels them that way in four places: the panel footer, the panel's info tooltip, the batch column header ("Top reasons (indicative)") and a caveat in the executive report. When the headline score comes from the model (live or recorded), the panel also shows the rule of thumb's own estimate next to the model's score, so any disagreement is visible. With a live API (1.1.0+), the single-score panel shows the model's own TreeSHAP attributions instead, labelled as such (§4).
 
 ### 1.2 Terms
 
@@ -62,12 +62,12 @@ Each term's logit contribution is multiplied by the sigmoid's **average slope** 
 
 ### 1.4 Risk bands and suggested actions
 
-Thresholds come from `src/data/validation.ts` (`DEFAULT_THRESHOLD`, `CAPACITY_THRESHOLD`), matching `artifacts/champion/threshold.json`.
+Thresholds come from `src/data/validation.ts` (`DEFAULT_THRESHOLD`, `CAPACITY_THRESHOLD`), matching `artifacts/champion/threshold.json` and the tiers of `deployment_policy_v2.json` that the API returns as `action`.
 
 | Band | Score | Action |
 |---|---|---|
 | Contact now | ≥ 0.68 | Personal outreach with retention incentive |
-| Capacity tier | 0.2058–0.68 | Low-cost email or in-app nudge |
+| Nudge | 0.2058–0.68 | Low-cost email or in-app nudge |
 | Monitor | < 0.2058 | No action; re-score next cycle |
 
 ### 1.5 Batch CSV export
@@ -99,23 +99,38 @@ ExecutiveSummary modal                       src/pages/simulator/ExecutiveSummar
   `--> Copy text           same Markdown to the clipboard
 ```
 
-- **Headline:** if net ≥ 0, it gives contacts per cycle at the user's scale, net per cycle and per year (× 12, 1 cycle = 1 month), ROI multiple and uplift vs random targeting. Otherwise it states the loss and the break-even value per save (`k·C / (TP·S)`) and save rate.
+- **Headline:** if net ≥ 0, it gives contacts per cycle at the user's scale, net per cycle and per year (× 12, 1 cycle = 1 month), retained value per $1 of contact spend and uplift vs random targeting. The key numbers show net ROI (net ÷ spend) with the gross return on spend (value ÷ spend) as its note. Otherwise it states the loss and the break-even value per save (`k·C / (TP·S)`) and save rate.
 - **Scaling:** every count and dollar figure goes through `scale(x, subs) = x × subs / 193,205`, which assumes the user's base has the validation window's churn rate and risk mix. The report states this assumption.
-- **Contact plan:** the bands are fixed validation-curve segments, independent of the chosen K: Contact now = top 1,478 (score ≥ 0.68), Capacity tier = ranks 1,479–10,000, Monitor = the rest. Expected churners per band = `tpAtK(to) − tpAtK(from)`, scaled.
-- **Risks:** the assumption with the widest ±50% swing (`sensitivity(...).bars[0]`), the break-even save rate and contact cost, and a prompt to validate the assumed save rate with a holdout experiment.
+- **Contact plan:** the bands are fixed validation-curve segments, independent of the chosen K: Contact now = top 1,478 (score ≥ 0.68), Nudge = ranks 1,479–10,000, Monitor = the rest. Expected churners per band = `tpAtK(to) − tpAtK(from)`, scaled.
+- **Risks:** the assumption(s) with the widest ±50% swing (`sensitivity(...).leaders`; save rate and value per save always tie because net is linear in S·V), the break-even save rate and contact cost, and a prompt to validate the assumed save rate with a holdout experiment.
 - **Caveats:** a validation-window simulation, not realised revenue; scaling assumes the same churn mix; customer-level reasons are indicative.
 
 ---
 
 ## 3. Tests
 
-`npm test` in `frontend/` runs 54 vitest tests and is part of CI. The new files:
+`npm test` in `frontend/` runs 62 vitest tests and is part of CI. The new files:
 
 - `src/lib/demoScore.test.ts`: parity with `demoEstimate`, top-N ordering, sign of key drivers, sum-to-gap when all inputs are provided, no drivers from missing inputs, impact formatting.
+- `src/lib/attributions.test.ts`: converted TreeSHAP points sum to score − baseline, signs are kept, features get their labels, dates and missing values are formatted.
 - `src/lib/report.test.ts`: positive recommendation at defaults, break-even guidance for a loss-making scenario, the three bands covering the whole subscriber base, and every section plus the scenario link in the Markdown export.
 
 ---
 
-## 4. Next Step: Model Attributions
+## 4. Model Attributions
 
-The rule of thumb stands in until the API can explain its own scores. The proposal ([README §7.5](../README.md#75-proposed-next-step-model-explanations-in-the-api)) is an optional `explanations` field on `/predict` and `/predict_batch`, with top-N TreeSHAP contributions from `MODEL.predict(X, pred_contrib=True)`. When the field is present, the panel, batch chips and CSV `top_reasons` would show those contributions, and the rule of thumb would remain only for Demo Mode.
+Since API 1.1.0, `/predict` returns `explanations` (top-5 TreeSHAP contributions in log-odds from `MODEL.predict(X, pred_contrib=True)`), `base_value`, `n_missing_features` and `warnings` ([README §7.5](../README.md#75-model-explanations-in-the-api)). The fields are optional in `src/lib/api.ts`, so an older deployment still works and falls back to the rule of thumb.
+
+```
+POST /predict -> { churn_probability, explanations[], base_value, warnings[] }
+        |
+        v
+toModelFactors(explanations, base_value, p)    src/lib/attributions.ts   (pure, unit-tested)
+  slope  = (p - sigmoid(base_value)) / (logit(p) - base_value)
+  impact = contribution x slope                 -> RiskFactor { id, text: "<label>: <value>", impact }
+        |
+        v
+RiskFactors model={{ factors, baseline }}      heading "model attributions"; tooltip names TreeSHAP
+```
+
+All 38 contributions would sum exactly to `p − sigmoid(base_value)`; the panel shows the top 5, so the bars cover most but not all of the gap. Batch scoring returns no attributions (they cost ~50 ms per record), so the batch top-reasons column and CSV `top_reasons` stay rule-of-thumb and are labelled indicative.

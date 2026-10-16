@@ -1,5 +1,7 @@
 # Bolt.new prompt: KKBox Retention Decision Engine UI
 
+> **Historical build prompt.** Kept for provenance of the AI-assisted UI build. Figures, naming and the dataset size (31 GB; the measured raw size is 32.7 GB) predate policy v2; the [README](../README.md) and [frontend README](../frontend/README.md) are current.
+
 Paste everything below the line into bolt.new.
 
 ---

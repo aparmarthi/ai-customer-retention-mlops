@@ -156,23 +156,23 @@ def main():
         )
 
     # ── Row 1: Data Pipeline ───────────────────────────────────
-    draw_box(ax, 1.5, 17.0, 5.5, 1.8,
+    draw_box(ax, 1.5, 16.75, 5.5, 2.05,
              "1  Data Pipeline  (src/data/)",
              [
-                 "7 numbered ETL scripts (01→07)",
+                 "8 numbered ETL scripts (01→08)",
                  "Raw CSV → Parquet → Feature tables",
                  "DuckDB for large-scale SQL aggregation",
-                 "~28 GB raw → ~1M row model table",
+                 "~33 GB raw → 992,931-row model table",
              ],
              C_DATA)
 
-    draw_box(ax, 8.5, 17.0, 5.5, 1.8,
+    draw_box(ax, 8.5, 16.75, 5.5, 2.05,
              "Time-Based Split",
              [
-                 "Train: ≤ Jan 31, 2017",
-                 "Valid: Feb 2017 holdout",
+                 "80th pct of txn_last_date (2017-02-24)",
+                 "Valid: 193,205 later subscribers",
                  "Prevents temporal leakage",
-                 "Churn rate: ~1.2% in holdout",
+                 "Churn rate: 1.24% in holdout",
              ],
              C_DATA)
 
@@ -183,7 +183,7 @@ def main():
     draw_box(ax, 1.5, 14.5, 5.5, 2.0,
              "2  Model Training  (src/models/)",
              [
-                 "12 architectures evaluated",
+                 "12 experiments evaluated",
                  "LightGBM, XGBoost, CatBoost, RF",
                  "TabNet, FT-Transformer, NODE",
                  "FLAML AutoML → champion selection",
@@ -201,7 +201,7 @@ def main():
              C_MODEL)
 
     # Arrow: split → training
-    draw_arrow(ax, 5.0, 17.0, 5.0, 16.5)
+    draw_arrow(ax, 5.0, 16.75, 5.0, 16.5)
 
     # Arrow: training → mlflow
     draw_side_arrow(ax, 7.0, 15.5, 8.5, 15.5, "atomic run logging")
@@ -222,7 +222,7 @@ def main():
              [
                  "99-step threshold sweep",
                  "ROI-optimal: t=0.68, $17,666 net",
-                 "Top-K: K=10,000, 3x lift over random",
+                 "Top-10K: 14.5x lift, but loses \\$6,776 at \\$5",
                  "Business assumptions documented",
              ],
              C_EVAL)
@@ -237,9 +237,9 @@ def main():
     draw_box(ax, 1.5, 9.2, 5.5, 2.2,
              "4  Decision Policy Engine",
              [
-                 "Primary: top-K (K=10,000)",
-                 "Fallback: ROI threshold (t=0.68)",
-                 "PolicyDecision objects",
+                 "v2 tiers: contact_now >= 0.68, nudge >= 0.2058",
+                 "monitor below; top-K for fixed capacity",
+                 "deployment_policy_v2.json (versioned)",
                  "src/serving/policy.py",
              ],
              C_SERVE)
@@ -247,10 +247,10 @@ def main():
     draw_box(ax, 8.5, 9.2, 5.5, 2.2,
              "FastAPI Inference Service",
              [
-                 "GET /health — model status",
-                 "POST /predict — single record",
-                 "POST /predict_batch — batch + CSV",
-                 "Pydantic contracts, feature alignment",
+                 "POST /predict — score, action, TreeSHAP top-5",
+                 "POST /predict_batch — batch + CSV, drift",
+                 "Guardrails: missing data, limits, API key",
+                 "Live on Cloud Run; React UI on Vercel",
              ],
              C_SERVE)
 
@@ -291,9 +291,9 @@ def main():
     draw_box(ax, 1.5, 3.6, 12.5, 2.0,
              "6  Champion Artifact Bundle  (artifacts/champion/)",
              [
-                 "model.pkl    feature_list.json    flaml_best_params.json    metrics.json    threshold.json    valid_scored.parquet",
+                 "model.pkl    feature_list.json    metrics.json    threshold.json    deployment_policy_v2.json    (generated: valid_scored.parquet)",
                  "Frozen, versioned, reproducible — every reported metric traces to this bundle",
-                 "Deployed via FastAPI (local) and registered in SageMaker Model Registry (cloud)",
+                 "Served by FastAPI on Cloud Run; SageMaker run registered in SageMaker Model Registry",
              ],
              "#ECEFF1")
 
@@ -302,10 +302,10 @@ def main():
 
     # ── Row 7: Monitoring ──────────────────────────────────────
     draw_box(ax, 1.5, 1.0, 12.5, 2.0,
-             "7  Monitoring Plan  (designed, not deployed)",
+             "7  Monitoring & Evals",
              [
-                 "Input drift: PSI on top SHAP features, null rate tracking, volume anomaly detection",
-                 "Output drift: score distribution shift (KS test), predicted vs observed churn rate",
+                 "Live: output drift (PSI of tier mix per batch), missing-data guardrail, evals gate CI and every deploy",
+                 "Designed: input drift (PSI on top SHAP features), null rate and volume tracking, predicted vs observed churn rate",
                  "Business: Precision@K decay tracking, ROI vs projection, retraining triggers (quarterly / performance / drift / emergency)",
              ],
              C_MONITOR)
