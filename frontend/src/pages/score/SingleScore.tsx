@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Braces, CheckCircle2, ListChecks, Loader2, Timer, Zap } from 'lucide-react';
 import { SAMPLES, type CustomerRecord, type Sample } from '@/data/samples';
 import { PROFILE_SAMPLES } from '@/data/profiles';
-import { demoEstimate, explainRecord } from '@/lib/demoScore';
+import { demoEstimate, explainRecord, type RiskFactor } from '@/lib/demoScore';
+import { modelBaseline, toModelFactors } from '@/lib/attributions';
 import { DEFAULT_THRESHOLD } from '@/data/validation';
 import { useApi } from '@/context/ApiContext';
 import { useToast } from '@/context/ToastContext';
@@ -21,13 +22,15 @@ interface Result {
   latencyMs: number | null;
   source: 'live' | 'demo' | 'estimate';
   expected?: number;
+  model?: { factors: RiskFactor[]; baseline: number };
+  warnings?: string[];
 }
 
 const PROFILES = [...PROFILE_SAMPLES].sort((a, b) => a.expected - b.expected);
 const CHOICES: Sample[] = [...PROFILES, ...SAMPLES];
 const GROUPS = [
   { title: 'Customer profiles', hint: 'Low to high risk · demo estimates until the API is connected', start: 0, items: PROFILES },
-  { title: 'Recorded model scores', hint: 'Real validation customers scored by the champion model', start: PROFILES.length, items: SAMPLES },
+  { title: 'Recorded model scores', hint: 'Reference records with scores recorded from the champion model', start: PROFILES.length, items: SAMPLES },
 ];
 
 const sameRecord = (a: CustomerRecord, b: CustomerRecord) => {
@@ -107,6 +110,11 @@ export function SingleScore() {
         latencyMs,
         source: 'live',
         expected: recorded?.expected,
+        model:
+          data.explanations?.length && typeof data.base_value === 'number'
+            ? { factors: toModelFactors(data.explanations, data.base_value, data.churn_probability), baseline: modelBaseline(data.base_value) }
+            : undefined,
+        warnings: data.warnings,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Prediction failed';
@@ -125,7 +133,7 @@ export function SingleScore() {
   return (
     <div className="grid gap-6 xl:grid-cols-5">
       <div className="space-y-6 xl:col-span-3">
-        <Card title="Pick a sample customer" subtitle="Profiles across the full risk range, plus five real validation customers." bodyClassName="space-y-5 p-4">
+        <Card title="Pick a sample customer" subtitle="Profiles across the full risk range, plus five records with recorded champion scores." bodyClassName="space-y-5 p-4">
           {GROUPS.map((g) => (
             <div key={g.title}>
               <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-0.5">
@@ -256,13 +264,19 @@ export function SingleScore() {
                   </dl>
                   <p className="mt-3 text-xs text-zinc-500 tabular-nums">probability {result.probability.toFixed(4)}</p>
                   <p className="mt-1 text-xs text-zinc-400">Suggested action: <span className="text-zinc-200">{band.action}</span></p>
+                  {result.warnings?.map((w) => (
+                    <p key={w} role="alert" className="mt-3 flex max-w-xs items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-left text-[11px] leading-relaxed text-amber-200">
+                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                      {w}
+                    </p>
+                  ))}
                   {result.source === 'estimate' && (
                     <p className="mt-3 max-w-xs text-center text-[11px] leading-relaxed text-zinc-500">
                       A rule of thumb based on auto-renew, cancellations, expiry and recent listening. Connect the API in Settings for the trained model's score.
                     </p>
                   )}
                   <div className="mt-5 w-full">
-                    <RiskFactors explanation={explanation} modelScore={result.source === 'estimate' ? undefined : result.probability} />
+                    <RiskFactors explanation={explanation} modelScore={result.source === 'estimate' ? undefined : result.probability} model={result.model} />
                   </div>
                 </div>
               ) : (
@@ -274,7 +288,7 @@ export function SingleScore() {
             </div>
           </Card>
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 text-[11px] text-zinc-500">
-            Bands: ≥ 0.68 <span className="text-rose-300">Contact now</span> · 0.2058–0.68 <span className="text-amber-300">Capacity tier</span> · &lt; 0.2058 <span className="text-emerald-300">Monitor</span>
+            Bands: ≥ 0.68 <span className="text-rose-300">Contact now</span> · 0.2058–0.68 <span className="text-amber-300">Nudge</span> · &lt; 0.2058 <span className="text-emerald-300">Monitor</span>
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { runSanityChecks } from '@/lib/sanity';
-import { logSpace, sensitivity, tpAtK } from '@/lib/economics';
+import { logSpace, net, sensitivity, tieredNet, tpAtK } from '@/lib/economics';
 import { CURVE } from '@/data/validation';
 
 describe('documented sanity values', () => {
@@ -41,6 +41,22 @@ describe('sensitivity', () => {
     const { bars } = sensitivity(1478, { valuePerSave: 120, costPerContact: 5, saveRate: 0.2 });
     const swings = bars.map((b) => Math.abs(b.high - b.low));
     expect([...swings].sort((a, b) => b - a)).toEqual(swings);
+  });
+
+  it('reports save rate and value per save as tied leaders, since net is linear in S·V', () => {
+    for (const a of [{ valuePerSave: 120, costPerContact: 5, saveRate: 0.2 }, { valuePerSave: 200, costPerContact: 2, saveRate: 0.3 }]) {
+      expect(sensitivity(1478, a).leaders.sort()).toEqual(['Save rate', 'Value per save']);
+    }
+  });
+
+  it('names cost per contact alone when it dominates', () => {
+    expect(sensitivity(10000, { valuePerSave: 20, costPerContact: 40, saveRate: 0.05 }).leaders).toEqual(['Cost per contact']);
+  });
+});
+
+describe('tieredNet', () => {
+  it('prices tier 1 with the user assumptions so it matches the single-tier result', () => {
+    expect(tieredNet(150, 8, 0.3).net1).toBeCloseTo(net(1478, 150, 8, 0.3), 9);
   });
 });
 

@@ -36,8 +36,11 @@ export const breakEvenSaveRate = (k: number, V: number, C: number): number => (k
 
 export const breakEvenCost = (k: number, V: number, S: number): number => (tpAtK(k) * S * V) / k;
 
-export const roiMultiple = (k: number, V: number, C: number, S: number): number =>
+// Gross: retained value per $1 of contact spend. Net ROI subtracts the spend first.
+export const returnOnSpend = (k: number, V: number, C: number, S: number): number =>
   (tpAtK(k) * S * V) / (k * C);
+
+export const netRoi = (k: number, V: number, C: number, S: number): number => net(k, V, C, S) / (k * C);
 
 export const revenueAtRisk = (V: number): number => VALID.churners * V;
 
@@ -54,7 +57,8 @@ export interface Scenario {
   spend: number;
   net: number;
   randomNet: number;
-  roi: number;
+  returnOnSpend: number;
+  netRoi: number;
   breakEvenSaveRate: number;
   breakEvenCost: number;
 }
@@ -70,7 +74,8 @@ export function scenario(k: number, a: Assumptions): Scenario {
     spend: spend(k, C),
     net: net(k, V, C, S),
     randomNet: randomNet(k, V, C, S),
-    roi: roiMultiple(k, V, C, S),
+    returnOnSpend: returnOnSpend(k, V, C, S),
+    netRoi: netRoi(k, V, C, S),
     breakEvenSaveRate: breakEvenSaveRate(k, V, C),
     breakEvenCost: breakEvenCost(k, V, S),
   };
@@ -84,7 +89,9 @@ export interface SensitivityBar {
   highLabel: string;
 }
 
-export function sensitivity(k: number, a: Assumptions, pct = 0.5): { base: number; bars: SensitivityBar[] } {
+// Net is linear in S·V, so save rate and value per save always swing net by the same amount.
+// `leaders` lists every driver tied for the largest swing so the UI never names just one of a tie.
+export function sensitivity(k: number, a: Assumptions, pct = 0.5): { base: number; bars: SensitivityBar[]; leaders: string[] } {
   const { valuePerSave: V, costPerContact: C, saveRate: S } = a;
   const base = net(k, V, C, S);
   const bars: SensitivityBar[] = [
@@ -92,23 +99,31 @@ export function sensitivity(k: number, a: Assumptions, pct = 0.5): { base: numbe
     { driver: 'Value per save', low: net(k, V * (1 - pct), C, S) - base, high: net(k, V * (1 + pct), C, S) - base, lowLabel: '-50%', highLabel: '+50%' },
     { driver: 'Cost per contact', low: net(k, V, C * (1 + pct), S) - base, high: net(k, V, C * (1 - pct), S) - base, lowLabel: '+50%', highLabel: '-50%' },
   ];
-  bars.sort((x, y) => Math.abs(y.high - y.low) - Math.abs(x.high - x.low));
-  return { base, bars };
+  const swing = (b: SensitivityBar) => Math.abs(b.high - b.low);
+  bars.sort((x, y) => swing(y) - swing(x));
+  const leaders = bars.filter((b) => swing(bars[0]) - swing(b) < 1e-6 * Math.max(1, swing(bars[0]))).map((b) => b.driver);
+  return { base, bars, leaders };
 }
 
+export function joinDrivers(drivers: string[]): string {
+  return drivers.map((d, i) => (i === 0 ? d : d.toLowerCase())).join(' and ');
+}
+
+// Tier 1 uses the user's incentive assumptions; tier 2 is a fixed, illustrative low-cost nudge.
 export const TIERS = {
-  tier1: { k: 1478, cost: 5, saveRate: 0.2 },
+  tier1: { k: 1478 },
   tier2: { kEnd: 10000, cost: 0.5, saveRate: 0.12 },
 };
 
-export function tieredNet(V: number) {
+export function tieredNet(V: number, C: number, S: number) {
   const { tier1, tier2 } = TIERS;
   const tp1 = tpAtK(tier1.k);
   const tp2 = tpAtK(tier2.kEnd) - tp1;
   const k2 = tier2.kEnd - tier1.k;
-  const net1 = tp1 * tier1.saveRate * V - tier1.k * tier1.cost;
+  const net1 = tp1 * S * V - tier1.k * C;
   const net2 = tp2 * tier2.saveRate * V - k2 * tier2.cost;
-  return { net1, net2, combined: net1 + net2, k2, tp1, tp2, upliftVsSingle: (net1 + net2) / net1 - 1 };
+  const spend = tier1.k * C + k2 * tier2.cost;
+  return { net1, net2, combined: net1 + net2, k2, tp1, tp2, spend, upliftVsSingle: net1 > 0 ? (net1 + net2) / net1 - 1 : NaN };
 }
 
 export function logSpace(min: number, max: number, steps: number): number[] {

@@ -1,5 +1,6 @@
 import { AlertTriangle, TrendingUp } from 'lucide-react';
 import { useAssumptions } from '@/context/AssumptionsContext';
+import { VALID } from '@/data/validation';
 import { scale, type Scenario } from '@/lib/economics';
 import { fmtCompact, fmtInt, fmtMultiple, fmtPct, fmtUsd, fmtUsd2, fmtUsdCompact } from '@/lib/format';
 import { CaveatChip } from '@/components/ui/CaveatChip';
@@ -15,9 +16,10 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
 
 export function ResultsPanel({ s }: { s: Scenario }) {
   const { subscribers, costPerContact: C, saveRate: S } = useAssumptions();
+  const at = (x: number) => scale(x, subscribers);
   const negative = s.net < 0;
   const breakEvenV = s.tp > 0 && S > 0 ? (s.k * C) / (s.tp * S) : Infinity;
-  const scaledNet = scale(s.net, subscribers);
+  const tone = negative ? 'text-rose-300' : 'text-emerald-300';
 
   return (
     <section
@@ -26,18 +28,21 @@ export function ResultsPanel({ s }: { s: Scenario }) {
     >
       <div className="flex items-center gap-2">
         {negative ? <AlertTriangle className="h-4 w-4 text-rose-400" /> : <TrendingUp className="h-4 w-4 text-emerald-400" />}
-        <h2 className="text-sm font-semibold text-zinc-100">Results at K = {fmtInt(s.k)}</h2>
+        <h2 className="text-sm font-semibold text-zinc-100">
+          Contact top {fmtPct(s.k / VALID.n, 2)} · {fmtInt(at(s.k))} of {fmtCompact(subscribers)} subs
+        </h2>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-4">
         <div>
-          <p className="text-xs text-zinc-500">Net / cycle (validation)</p>
-          <p className={`mt-1 text-2xl font-semibold tabular-nums ${negative ? 'text-rose-300' : 'text-emerald-300'}`}>{fmtUsd(s.net)}</p>
+          <p className="text-xs text-zinc-500">Net value / cycle</p>
+          <p className={`mt-1 text-2xl font-semibold tabular-nums ${tone}`}>{fmtUsdCompact(at(s.net))}</p>
+          <p className="text-[11px] text-zinc-500 tabular-nums">{fmtUsdCompact(at(s.net) * 12)}/yr</p>
         </div>
         <div>
-          <p className="text-xs text-zinc-500">Net / cycle ({fmtCompact(subscribers)} subs)</p>
-          <p className={`mt-1 text-2xl font-semibold tabular-nums ${negative ? 'text-rose-300' : 'text-emerald-300'}`}>{fmtUsdCompact(scaledNet)}</p>
-          <p className="text-[11px] text-zinc-500 tabular-nums">{fmtUsdCompact(scaledNet * 12)}/yr</p>
+          <p className="text-xs text-zinc-500">Net ROI (net ÷ spend)</p>
+          <p className={`mt-1 text-2xl font-semibold tabular-nums ${tone}`}>{fmtPct(s.netRoi, 0)}</p>
+          <p className="text-[11px] text-zinc-500 tabular-nums">{fmtUsd2(s.returnOnSpend)} back per $1 spent</p>
         </div>
       </div>
 
@@ -48,17 +53,21 @@ export function ResultsPanel({ s }: { s: Scenario }) {
       )}
 
       <dl className="mt-4 divide-y divide-zinc-800/80 border-t border-zinc-800/80">
-        <Row label="True churners caught (TP)" value={fmtInt(s.tp)} />
-        <Row label="Precision" value={fmtPct(s.precision)} />
+        <Row label="Churners reached" value={`${fmtInt(at(s.tp))} of ${fmtInt(at(VALID.churners))}`} />
+        <Row label="Precision (hit rate)" value={fmtPct(s.precision)} />
         <Row label="Recall" value={fmtPct(s.recall)} />
-        <Row label="Value saved" value={fmtUsd(s.valueSaved)} />
-        <Row label="Contact spend" value={fmtUsd(s.spend)} />
-        <Row label="ROI multiple" value={fmtMultiple(s.roi)} strong />
+        <Row label="Value retained" value={fmtUsd(at(s.valueSaved))} />
+        <Row label="Contact spend" value={fmtUsd(at(s.spend))} />
+        <Row label="Return on spend (gross)" value={fmtMultiple(s.returnOnSpend)} strong />
         <Row label="Break-even save rate" value={fmtPct(s.breakEvenSaveRate)} />
         <Row label="Break-even contact cost" value={fmtUsd2(s.breakEvenCost)} />
-        <Row label="Random targeting, same K" value={fmtUsd(s.randomNet)} />
+        <Row label="Random targeting, same contacts" value={fmtUsd(at(s.randomNet))} />
       </dl>
-      <CaveatChip className="mt-4" />
+      <p className="mt-4 text-[11px] leading-relaxed text-zinc-500 tabular-nums">
+        Measured on the validation window ({fmtInt(VALID.n)} subs): {fmtInt(s.k)} contacts, {fmtInt(s.tp)} churners reached, net {fmtUsd(s.net)}/cycle.
+        Your figures scale this linearly (×{(subscribers / VALID.n).toFixed(2)}).
+      </p>
+      <CaveatChip className="mt-3" />
     </section>
   );
 }

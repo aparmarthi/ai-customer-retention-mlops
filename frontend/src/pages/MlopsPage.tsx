@@ -5,11 +5,11 @@ import { CodeBlock } from '@/components/ui/CopyButton';
 
 const DEPLOY = [
   { icon: Cloud, title: 'FastAPI on Cloud Run', detail: 'us-central1 · 1 vCPU / 1 GiB · min 0 / max 3 instances · scale-to-zero' },
-  { icon: GitBranch, title: 'CI: GitHub Actions', detail: 'pytest → build image → deploy' },
+  { icon: GitBranch, title: 'CI: GitHub Actions', detail: 'pytest + evals → build image → deploy → post-deploy eval' },
   { icon: Box, title: 'Docker image', detail: 'Reproducible serving container' },
   { icon: HeartPulse, title: '/health checks', detail: 'Model, threshold, feature list and categorical columns loaded' },
   { icon: Timer, title: 'Latency logging', detail: 'Request-latency logging middleware' },
-  { icon: Layers, title: 'MLflow', detail: 'Experiment tracking + model registry' },
+  { icon: Layers, title: 'MLflow', detail: 'Experiment tracking (model registry: SageMaker)' },
 ];
 
 const MONITORS = [
@@ -81,20 +81,28 @@ export function MlopsPage() {
         </div>
       </Card>
 
-      <Card title="Deployment policy" subtitle={`${POLICY.name} · ${POLICY.version}`} icon={<FileJson className="h-4 w-4" />}>
+      <Card title="Deployment policy" subtitle={`${POLICY.policy_name} · ${POLICY.version}`} icon={<FileJson className="h-4 w-4" />}>
         <div className="grid gap-6 lg:grid-cols-2">
           <CodeBlock code={JSON.stringify(POLICY, null, 2)} copyLabel="Copy JSON" />
           <div className="space-y-3">
             <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/[0.05] p-4">
-              <p className="label text-emerald-400">Primary · top-K = capacity</p>
+              <p className="label text-emerald-400">Tiers · every score gets an action</p>
               <p className="mt-2 text-sm text-zinc-300">
-                Each cycle the retention team works the top {POLICY.primary.k.toLocaleString('en-US')} by score. The constraint is how many people ops can actually contact, so K is set by headcount, not by a probability cutoff.
+                The API loads this artifact and returns <code className="text-zinc-200">contact_now</code>, <code className="text-zinc-200">nudge</code> or <code className="text-zinc-200">monitor</code> with each score. Changing a cutoff or cost is a versioned artifact change, not a code change.
               </p>
+              <ul className="mt-3 space-y-1.5 text-xs text-zinc-400">
+                <li><span className="text-rose-300">contact_now</span> · score ≥ {POLICY.tiers[0].min_score}, the ROI-max cutoff on validation: $5 incentive, 20% assumed save rate.</li>
+                <li><span className="text-amber-300">nudge</span> · {POLICY.tiers[1].min_score} to {POLICY.tiers[0].min_score}, down to the 10,000th rank (ops capacity): $0.50 nudge, 12% illustrative save rate.</li>
+                <li><span className="text-emerald-300">monitor</span> · below {POLICY.tiers[1].min_score}: no contact, re-score next cycle.</li>
+              </ul>
             </div>
             <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
-              <p className="label">Fallback · threshold = ROI</p>
+              <p className="label">Why v2 replaced v1</p>
               <p className="mt-2 text-sm text-zinc-300">
-                When capacity isn't the binding constraint, contact everyone scoring ≥ {POLICY.fallback.threshold} — the ROI-max cutoff on validation.
+                v1 made top-10K the primary policy. With the $5 incentive for all 10,000 it loses $6,776 per cycle on validation. Threshold-only nets +$17,666; adding the nudge tier nets +$24,306 (simulated, not realised revenue).
+              </p>
+              <p className="mt-2 text-xs text-zinc-500">
+                The /predict threshold (default {POLICY.tiers[0].min_score}) still sets <code>churn_label</code>; batch top-K remains available for a fixed-capacity call list.
               </p>
             </div>
           </div>

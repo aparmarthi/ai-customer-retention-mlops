@@ -2,7 +2,8 @@ import { useId } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { useAssumptions } from '@/context/AssumptionsContext';
 import { BOUNDS } from '@/lib/scenario';
-import { knownThreshold, precisionAtK, recallAtK } from '@/lib/economics';
+import { VALID } from '@/data/validation';
+import { knownThreshold, precisionAtK, recallAtK, scale } from '@/lib/economics';
 import { fmtInt, fmtPct, fmtUsd, fmtUsd2 } from '@/lib/format';
 import { Card } from '@/components/ui/primitives';
 import { SubscriberInput } from '@/components/layout/SubscriberInput';
@@ -34,7 +35,7 @@ export function SimulatorInputs() {
     >
       <div>
         <div className="flex items-center justify-between gap-3">
-          <label htmlFor={kId} className="text-xs font-medium text-zinc-300">K contacts per cycle</label>
+          <label htmlFor={kId} className="text-xs font-medium text-zinc-300">K contacts per cycle (validation window)</label>
           <input
             type="number"
             aria-label="K contacts value"
@@ -58,6 +59,9 @@ export function SimulatorInputs() {
         <div className="mt-1 flex justify-between text-[10px] text-zinc-600 tabular-nums">
           <span>100</span><span>1K</span><span>10K</span><span>50K</span>
         </div>
+        <p className="mt-2 text-[11px] text-zinc-400 tabular-nums">
+          Top {fmtPct(a.k / VALID.n, 2)} of the base = {fmtInt(scale(a.k, a.subscribers))} contacts at {fmtInt(a.subscribers)} subscribers.
+        </p>
         <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Snap K to a known operating point">
           {SNAPS.map((s) => (
             <button
@@ -74,7 +78,7 @@ export function SimulatorInputs() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-1">
         <LockedChip label="Precision" value={fmtPct(precisionAtK(a.k))} />
         <LockedChip label="Recall" value={fmtPct(recallAtK(a.k))} />
         <LockedChip label="Threshold" value={threshold !== undefined ? String(threshold) : '—'} />

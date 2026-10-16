@@ -3,7 +3,7 @@ import { ArrowRight, Cloud, Container, Cpu, Database, FlaskConical, GitBranch, H
 import { Bar, BarChart, Cell, LabelList, ResponsiveContainer, XAxis, YAxis, ReferenceLine } from 'recharts';
 import { useAssumptions } from '@/context/AssumptionsContext';
 import { CAPACITY_K, ROI_MAX_K, VALID } from '@/data/validation';
-import { liftAtK, net, randomNet, recallAtK, revenueAtRisk, roiMultiple, scale, tpAtK } from '@/lib/economics';
+import { liftAtK, net, netRoi, randomNet, recallAtK, returnOnSpend, revenueAtRisk, scale, tpAtK } from '@/lib/economics';
 import { fmtInt, fmtMultiple, fmtPct, fmtSignedUsdCompact, fmtUsdMillions } from '@/lib/format';
 import { Badge, Card } from '@/components/ui/primitives';
 import { InfoTip } from '@/components/ui/InfoTip';
@@ -13,10 +13,10 @@ import { CaveatChip } from '@/components/ui/CaveatChip';
 const ARCH_IMG = 'https://raw.githubusercontent.com/aparmarthi/ai-customer-retention-mlops/main/docs/architecture.png';
 
 const PIPELINE = [
-  { icon: HardDrive, title: '31 GB raw CSV', sub: 'KKBox logs + billing' },
+  { icon: HardDrive, title: '33 GB raw CSV', sub: 'KKBox logs + billing' },
   { icon: Database, title: 'DuckDB', sub: '38 engineered features' },
-  { icon: Cpu, title: '12-model benchmark', sub: '+ FLAML tuning' },
-  { icon: FlaskConical, title: 'MLflow', sub: 'tracking + registry' },
+  { icon: Cpu, title: '12 experiments', sub: '7 model families + FLAML' },
+  { icon: FlaskConical, title: 'MLflow', sub: 'experiment tracking' },
   { icon: Server, title: 'FastAPI', sub: '/predict, /predict_batch' },
   { icon: Container, title: 'Docker', sub: 'reproducible image' },
   { icon: Cloud, title: 'Cloud Run', sub: 'us-central1' },
@@ -35,7 +35,7 @@ function Kpi({ label, value, sub, formula }: { label: string; value: string; sub
           content={
             <>
               <span className="block font-mono text-[11px] text-zinc-200">{formula}</span>
-              <span className="mt-2 block text-amber-300/90">Simulated, validation window (Feb 2017). Not realized revenue.</span>
+              <span className="mt-2 block text-amber-300/90">Simulated on the time-based validation window. Not realized revenue.</span>
             </>
           }
         />
@@ -53,7 +53,7 @@ export function OverviewPage() {
   const modelNet = net(ROI_MAX_K, V, C, S);
   const randNet = randomNet(ROI_MAX_K, V, C, S);
   const annual = scale(modelNet, subscribers) * 12;
-  const roi = roiMultiple(ROI_MAX_K, V, C, S);
+  const gross = returnOnSpend(ROI_MAX_K, V, C, S);
   const recall = recallAtK(ROI_MAX_K);
   const lift10k = liftAtK(CAPACITY_K);
   const atRisk = scale(revenueAtRisk(V), subscribers);
@@ -70,10 +70,10 @@ export function OverviewPage() {
         <div className="relative max-w-3xl">
           <Badge tone="value"><Sparkles className="h-3 w-3" /> Executive overview</Badge>
           <h1 className="mt-4 text-3xl font-semibold tracking-tight text-zinc-50 md:text-5xl">
-            Find the <span className="text-emerald-300">0.8%</span> of subscribers who drive <span className="text-rose-300">43%</span> of churn, before they leave.
+            Find the <span className="text-emerald-300">0.76%</span> of subscribers who drive <span className="text-rose-300">43%</span> of churn, before they leave.
           </h1>
           <p className="mt-4 text-base text-zinc-400 md:text-lg">
-            LightGBM churn model + capacity-aware decision policy on 31 GB of KKBox subscription and listening logs.
+            LightGBM churn model + capacity-aware decision policy on 33 GB of KKBox subscription and listening logs.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <a href="#/simulator" className="btn-primary">Open policy simulator <ArrowRight className="h-4 w-4" /></a>
@@ -93,7 +93,7 @@ export function OverviewPage() {
           sub={`Top ${fmtInt(ROI_MAX_K)} policy · scaled to ${fmtInt(subscribers)} subs`}
           formula={`(TP(K)·S·V − K·C) × subs/193,205 × 12, K=${fmtInt(ROI_MAX_K)}`}
         />
-        <Kpi label="Return on retention spend" value={fmtMultiple(roi)} sub="Value saved ÷ contact spend" formula="(TP(K)·S·V) ÷ (K·C), K=1,478" />
+        <Kpi label="Return on retention spend" value={fmtMultiple(gross)} sub={`Value retained ÷ contact spend · net ROI ${fmtPct(netRoi(ROI_MAX_K, V, C, S), 0)}`} formula="(TP(K)·S·V) ÷ (K·C), K=1,478" />
         <Kpi
           label="Churners caught by contacting 0.76% of the base"
           value={fmtPct(recall)}

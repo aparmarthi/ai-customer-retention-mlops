@@ -12,6 +12,8 @@ export interface HealthResponse {
   artifacts: { model: string; threshold: string; feature_list: string; categorical_cols: string };
   n_features: number;
   default_threshold: number;
+  /** Added in API 1.1.0; absent on older deployments. */
+  policy_version?: string;
 }
 
 export interface RootResponse {
@@ -22,12 +24,25 @@ export interface RootResponse {
   endpoints: string[];
 }
 
+/** One TreeSHAP contribution from the trained model, in log-odds. */
+export interface ModelExplanation {
+  feature: string;
+  value: number | string | null;
+  contribution: number;
+}
+
 export interface PredictResponse {
   churn_probability: number;
   churn_label: 0 | 1;
   policy_used: 'threshold';
   threshold_used: number;
   metadata: { note: string };
+  // Added in API 1.1.0; optional so older deployments still parse.
+  action?: 'contact_now' | 'nudge' | 'monitor';
+  explanations?: ModelExplanation[];
+  base_value?: number | null;
+  n_missing_features?: number;
+  warnings?: string[];
 }
 
 export interface BatchItem {

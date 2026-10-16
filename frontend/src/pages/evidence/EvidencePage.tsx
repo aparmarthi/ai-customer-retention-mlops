@@ -15,7 +15,7 @@ const FIGURES = [
 ];
 
 const WHY = [
-  'Best PR-AUC of the 12-model benchmark.',
+  'Best PR-AUC of the seven model families benchmarked (12 experiments in total).',
   'Roughly 3-minute CPU training vs 23–32 minutes on GPU for the deep tabular models.',
   'Native categorical handling (gender) with no one-hot encoding step.',
   'Cheap serving: an 18.7 MB artifact on 1 vCPU / 1 GiB.',
@@ -60,7 +60,7 @@ export function EvidencePage() {
       <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-4 text-sm text-amber-100">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
         <p>
-          Benchmark used a random split (6.2% prevalence); champion was re-validated on a time-based Feb-2017 window (1.24%). Numbers are not directly comparable — the time-based ones are what we'd ship on.
+          Benchmark used a random split (6.4% prevalence); champion was re-validated on a time-based holdout of subscribers whose last transaction is after 2017-02-24 (1.24%). Numbers are not directly comparable — the time-based ones are what we'd ship on.
         </p>
       </div>
 
@@ -79,11 +79,11 @@ export function EvidencePage() {
               ))}
             </ul>
             <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-950/60 p-3 text-xs text-zinc-400">
-              <span className="font-medium text-zinc-200">Ensemble tied — rejected for complexity.</span> No lift for the added serving and maintenance cost.
+              <span className="font-medium text-zinc-200">Ensemble collapsed to LightGBM.</span> The soft-vote search put weight 1.0 on LightGBM, so an ensemble adds serving cost for no lift.
             </div>
             <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
               {[
-                ['PR-optimal lift', LIFT.prOptimal],
+                ['PR-AUC lift', LIFT.prAuc],
                 ['P@5K lift', LIFT.at5k],
                 ['P@10K lift', LIFT.at10k],
               ].map(([l, v]) => (
@@ -95,9 +95,9 @@ export function EvidencePage() {
             </dl>
           </Card>
 
-          <Card title="SageMaker parity" subtitle="Portability check, not the champion." icon={<Cloud className="h-4 w-4" />}>
+          <Card title="SageMaker portability" subtitle="Workflow check, not the champion." icon={<Cloud className="h-4 w-4" />}>
             <p className="text-xs text-zinc-400">
-              Same pipeline retrained on SageMaker ({SAGEMAKER.instance}), registered in {SAGEMAKER.registry}.
+              Same hyperparameters retrained on SageMaker ({SAGEMAKER.instance}) on a 10% sample with a 2017-01-31 cutoff, registered in {SAGEMAKER.registry}. Different validation set, so not like-for-like.
             </p>
             <div className="mt-4 grid grid-cols-3 gap-2 text-center">
               {[

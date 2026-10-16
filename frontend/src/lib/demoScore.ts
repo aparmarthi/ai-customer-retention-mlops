@@ -1,7 +1,7 @@
 import type { CustomerRecord } from '@/data/samples';
 import { ymdToDays } from '@/lib/dates';
 
-// Feb-2017 validation window ends here; expiry and recency are measured against it.
+// The KKBox data ends here; expiry and recency are measured against it.
 const CUTOFF = 20170228;
 const BASE_LOGIT = -3;
 const MIN_IMPACT = 0.002;
