@@ -6,7 +6,7 @@ Sorted by **PR-AUC (Average Precision)**, then ROC-AUC. Metrics are on the **val
 |---:|---|---:|---:|---:|---:|---:|---:|---:|---|
 | 1 | LightGBM | 0.8887 | **13.9x** | 0.9894 | 0.7845 | 0.6805 | 0.9260 | ~3 min | Baseline config, scale_pos_weight |
 | 2 | Ensemble (soft vote) | 0.8887 | **13.9x** | 0.9894 | 0.7845 | 0.6805 | 0.9260 | — | Reduces to LightGBM (weight = 1.0) |
-| 3 | XGBoost (Train API) | 0.8771 | **13.7x** | 0.9875 | — | — | — | ~2 min | Baseline XGBoost, no threshold tuning |
+| 3 | XGBoost (Train API) | 0.8771 | **13.7x** | 0.9875 | 0.7180 | 0.5800 | 0.9421 | ~2 min | Baseline XGBoost, no threshold tuning (F1/P/R from `reports/xgboost_results.json`) |
 | 4 | CatBoost | 0.8737 | **13.7x** | 0.9865 | 0.7282 | 0.6002 | 0.9257 | ~3.7 min | GPU-accelerated, early stop (od_wait=200) |
 | 5 | FT-Transformer | 0.8214 | **12.9x** | 0.9824 | 0.6825 | 0.5374 | 0.9350 | ~23 min | 4-layer transformer, AMP, GPU |
 | 6 | Random Forest | 0.7935 | **12.4x** | 0.9782 | 0.5798 | 0.4188 | 0.9419 | ~5 min | One-hot encoding, balanced_subsample |
