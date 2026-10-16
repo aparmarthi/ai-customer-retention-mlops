@@ -7,7 +7,7 @@ notebooks/
 reports/
 docs/
 
-# React front end (hosted separately on Bolt)
+# React front end (hosted separately on Vercel)
 frontend/
 
 # Artifacts NOT needed at inference (only champion/ is copied in Dockerfile)

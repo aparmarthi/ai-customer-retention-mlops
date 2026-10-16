@@ -2,7 +2,7 @@
 
 Executive and operator front end for the FastAPI churn-prediction service trained on the KKBox subscription-music dataset (Kaggle WSDM 2018).
 
-React + Vite + TypeScript + Tailwind, Recharts for charts, lucide-react for icons. Built in bolt.new and hosted on Bolt at https://churn-decision-intel-3o63.bolt.host/. This folder is the source; run every command below from `frontend/`.
+React + Vite + TypeScript + Tailwind, Recharts for charts, lucide-react for icons. Prototyped in bolt.new; hosted on Vercel at https://churn.ameyparmarthi.com/. This folder is the source; run every command below from `frontend/`.
 
 ## Pages
 
@@ -122,4 +122,4 @@ npm run lint
 
 Test files: `src/lib/economics.test.ts`, `src/lib/scenario.test.ts`, `src/lib/stats.test.ts`, `src/data/profiles.test.ts`, `src/pages/score/jsonBatch.test.ts`, `src/lib/demoScore.test.ts` (driver ranking, sum-to-gap, no invented inputs, `demoEstimate` parity) and `src/lib/report.test.ts` (report numbers and Markdown export). CI runs typecheck, tests and build on every push and PR to `main` (`frontend` job in `.github/workflows/deploy.yml`).
 
-The live app is published from bolt.new. Routing is hash-based, so `dist/` also works on any static host (Vercel, Netlify, Cloud Storage) with no rewrites. Set `VITE_API_URL` at build time to target another API.
+Vercel deploys from this repo (project `churn-decision-intelligence`, root directory `frontend/`, Vite preset): every push to `main` goes to production and every PR gets a preview URL. Routing is hash-based, so `dist/` also works on any other static host with no rewrites. Set `VITE_API_URL` at build time to target another API.
