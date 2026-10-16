@@ -10,7 +10,7 @@
 
 This project goes beyond model accuracy. It demonstrates full-stack ML system design: scalable feature engineering, experiment governance, two-policy decision engine, and ROI-aligned threshold optimization — mirroring real MLE + MLOps + AI Product workflows.
 
-**Live:** [Decision Intelligence UI](https://churn-decision-intel-3o63.bolt.host/) (React: per-customer risk drivers, suggested actions, one-click executive summary) · [Streamlit dashboard](https://amey-churn-predictor.streamlit.app/) · [API on Cloud Run](https://churn-api-995576020018.us-central1.run.app/docs)
+**Live:** [Decision Intelligence UI](https://churn.ameyparmarthi.com/) (React: per-customer risk drivers, suggested actions, one-click executive summary) · [Streamlit dashboard](https://amey-churn-predictor.streamlit.app/) · [API on Cloud Run](https://churn-api-995576020018.us-central1.run.app/docs)
 
 ---
 
@@ -412,7 +412,7 @@ Returns per-record: `churn_probability`, `churn_label`, `rank` (top-K only), `po
 
 ### 7.4 Decision Intelligence UI (`frontend/`)
 
-A React + Vite + TypeScript front end for executives and retention operators, live at **https://churn-decision-intel-3o63.bolt.host/**. It calls this API and falls back to a clearly labelled Demo Mode while Cloud Run cold-starts. Details: [frontend/README.md](frontend/README.md) · design notes: [docs/frontend-architecture.md](docs/frontend-architecture.md) · walkthrough: [docs/demo-script.md](docs/demo-script.md).
+A React + Vite + TypeScript front end for executives and retention operators, live at **https://churn.ameyparmarthi.com/**. It calls this API and falls back to a clearly labelled Demo Mode while Cloud Run cold-starts. Details: [frontend/README.md](frontend/README.md) · design notes: [docs/frontend-architecture.md](docs/frontend-architecture.md) · walkthrough: [docs/demo-script.md](docs/demo-script.md).
 
 - **Why this score:** each scored customer shows up to five risk drivers (e.g. "Membership lapsed 25 days ago") and a suggested action for their risk band: personal outreach with an incentive at ≥ 0.68, a low-cost email or in-app nudge at 0.2058–0.68, otherwise monitor. Batch results add a top-reasons column. The drivers are **indicative, from a transparent rule of thumb, not the LightGBM model's attributions**. The UI says so, and it shows the rule of thumb's estimate next to the model's score.
 - **One-click executive summary:** the policy simulator turns the current scenario into a one-page report covering the recommendation, key numbers, a contact plan by risk band at your subscriber count, assumptions, risks and caveats. It prints to PDF or downloads as Markdown. Dollar figures are simulated on the Feb-2017 validation window, not realised revenue.
@@ -820,7 +820,7 @@ uvicorn src.serving.api:app --reload
 
 **Option B — Live deployments (no setup):**
 
-- **Decision Intelligence UI (React):** **https://churn-decision-intel-3o63.bolt.host/** for scoring with risk drivers, the policy simulator and the executive summary. To run locally: `cd frontend && npm ci && npm run dev`.
+- **Decision Intelligence UI (React):** **https://churn.ameyparmarthi.com/** for scoring with risk drivers, the policy simulator and the executive summary. To run locally: `cd frontend && npm ci && npm run dev`.
 - **Streamlit dashboard:** **https://amey-churn-predictor.streamlit.app/** for single prediction, batch scoring and the ROI simulator.
 
 **Option C — Docker (production, local):**
@@ -946,7 +946,7 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 - Scenario modeling across intervention types: outreach vs. incentive offers
 - Business assumptions documented separately — not baked silently into model training
 - Monitoring plan with label-delay awareness and retraining triggers
-- Executive UI for threshold and ROI scenario exploration, with a one-click, print-ready executive summary and a suggested action per risk band ([live](https://churn-decision-intel-3o63.bolt.host/))
+- Executive UI for threshold and ROI scenario exploration, with a one-click, print-ready executive summary and a suggested action per risk band ([live](https://churn.ameyparmarthi.com/))
 
 ---
 

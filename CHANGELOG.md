@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format is based on 
 
 ### Added
 
-- **Front end source in the repo:** the React + Vite + TypeScript Decision Intelligence UI now lives in `frontend/`, the same app that is live at https://churn-decision-intel-3o63.bolt.host/.
+- **Front end source in the repo:** the React + Vite + TypeScript Decision Intelligence UI now lives in `frontend/`, deployed on Vercel at https://churn.ameyparmarthi.com/ (auto-deploys from `main`; replaces the Bolt-hosted copy).
 - **"Why this score" panel** on single-customer scores: up to 5 indicative risk drivers with signed impact in probability points, plus a suggested action under the risk band. When the score comes from the model, the panel also shows the rule of thumb's own estimate. The drivers come from the transparent rule-of-thumb estimator, **not** from the LightGBM model.
 - **"Top reasons (indicative)" column** in batch results (top 2 drivers per row).
 - **Executive summary report** on the Policy Simulator (`#/simulator`): a print-ready one-pager covering the recommendation, key numbers, contact plan by risk band at the user's subscriber count, assumptions, model, risks and caveats. Exports: print / save as PDF, Markdown download (`churn-retention-summary-k<K>.md`) and copy text.

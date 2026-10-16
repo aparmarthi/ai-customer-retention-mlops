@@ -2,7 +2,7 @@
 
 **Story:** score a customer → why they're flagged → what to do → what it's worth at our scale → hand the exec a one-page summary.
 
-**Setup (before the call):** open https://churn-decision-intel-3o63.bolt.host/ about a minute early so the Cloud Run API wakes from scale-to-zero. The status pill should be green; if it's amber, the app is in Demo Mode and every estimate is badged. Have a second tab on `#/simulator`.
+**Setup (before the call):** open https://churn.ameyparmarthi.com/ about a minute early so the Cloud Run API wakes from scale-to-zero. The status pill should be green; if it's amber, the app is in Demo Mode and every estimate is badged. Have a second tab on `#/simulator`.
 
 ---
 
