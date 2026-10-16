@@ -7,6 +7,9 @@ notebooks/
 reports/
 docs/
 
+# React front end (hosted separately on Bolt)
+frontend/
+
 # Artifacts NOT needed at inference (only champion/ is copied in Dockerfile)
 artifacts/champion/valid_scored.parquet
 artifacts/champion/threshold_vs_*.png
