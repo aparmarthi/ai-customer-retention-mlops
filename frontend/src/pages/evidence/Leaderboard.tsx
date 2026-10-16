@@ -89,6 +89,10 @@ export function Leaderboard() {
           </tbody>
         </table>
       </div>
+      <p className="border-t border-zinc-800 px-4 py-3 text-xs text-zinc-500">
+        F1, precision and recall use a fixed 0.5 cutoff, so they reflect each model's class weighting as much as its ranking. Compare on PR-AUC.
+        — = not computed (the XGBoost run had no threshold evaluation).
+      </p>
       <div className="border-t border-zinc-800 p-5">
         <p className="label mb-3">PR-AUC by model</p>
         <div className="h-64">
