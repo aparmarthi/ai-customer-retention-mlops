@@ -10,6 +10,8 @@
 
 This project goes beyond model accuracy. It demonstrates full-stack ML system design: scalable feature engineering, experiment governance, two-policy decision engine, and ROI-aligned threshold optimization — mirroring real MLE + MLOps + AI Product workflows.
 
+**Live:** [Decision Intelligence UI](https://churn-decision-intel-3o63.bolt.host/) (React: per-customer risk drivers, suggested actions, one-click executive summary) · [Streamlit dashboard](https://amey-churn-predictor.streamlit.app/) · [API on Cloud Run](https://churn-api-995576020018.us-central1.run.app/docs)
+
 ---
 
 ## Results at a Glance
@@ -408,6 +410,18 @@ Returns per-record: `churn_probability`, `churn_label`, `rank` (top-K only), `po
 - Feature alignment at inference time: missing columns filled with `NaN`, extra columns silently dropped — robust to schema drift
 - Equivalent threshold for the configured top-K is surfaced in the response when it matches `threshold.json`, giving every top-K batch run a threshold anchor for auditability
 
+### 7.4 Decision Intelligence UI (`frontend/`)
+
+A React + Vite + TypeScript front end for executives and retention operators, live at **https://churn-decision-intel-3o63.bolt.host/**. It calls this API and falls back to a clearly labelled Demo Mode while Cloud Run cold-starts. Details: [frontend/README.md](frontend/README.md) · design notes: [docs/frontend-architecture.md](docs/frontend-architecture.md) · walkthrough: [docs/demo-script.md](docs/demo-script.md).
+
+- **Why this score:** each scored customer shows up to five risk drivers (e.g. "Membership lapsed 25 days ago") and a suggested action for their risk band: personal outreach with an incentive at ≥ 0.68, a low-cost email or in-app nudge at 0.2058–0.68, otherwise monitor. Batch results add a top-reasons column. The drivers are **indicative, from a transparent rule of thumb, not the LightGBM model's attributions**. The UI says so, and it shows the rule of thumb's estimate next to the model's score.
+- **One-click executive summary:** the policy simulator turns the current scenario into a one-page report covering the recommendation, key numbers, a contact plan by risk band at your subscriber count, assumptions, risks and caveats. It prints to PDF or downloads as Markdown. Dollar figures are simulated on the Feb-2017 validation window, not realised revenue.
+- **Batch CSV export** columns: `row_index, rank, churn_probability, label_at_0_68, in_top_k, risk_band, suggested_action, top_reasons, <input columns>`. The last three named columns are new ([CHANGELOG](CHANGELOG.md)).
+
+### 7.5 Proposed Next Step: Model Explanations in the API
+
+*Not implemented; the API is unchanged.* Add an optional `explanations` field to `/predict` and `/predict_batch` items: the top-N per-record SHAP contributions from the champion, via `MODEL.predict(X, pred_contrib=True)` on the existing `LGBMClassifier`. That returns exact TreeSHAP log-odds contributions plus a bias column, with no `shap` dependency at serving time. Make it opt-in (e.g. `explain=true&top_n=5`) so large batch uploads don't pay for it by default. When the field is present, the front end would show these real attributions instead of the rule-of-thumb drivers, and keep the rule of thumb for Demo Mode only.
+
 ---
 
 ## 8. Experiment Tracking: MLflow
@@ -666,7 +680,7 @@ Monitoring priority:
 | **Explainability** | SHAP |
 | **Serving** | FastAPI, uvicorn |
 | **Cloud / MLOps** | AWS SageMaker (Training Jobs, Model Registry), boto3, S3 |
-| **Dashboard** | Streamlit *(planned)* |
+| **Dashboard / UI** | Streamlit; React + Vite + TypeScript + Tailwind, Recharts (`frontend/`) |
 | **Visualization** | Matplotlib, Seaborn |
 | **Utilities** | scikit-learn, joblib, tqdm, fsspec |
 
@@ -692,8 +706,11 @@ ai-customer-retention-mlops/
 |-- scripts/
 |   |-- generate_leaderboard.py
 |   `-- generate_architecture_diagram.py
+|-- frontend/                       # React decision UI (Vite + TS); see frontend/README.md
 |-- docs/
 |   |-- executive_summary.md         # AI PM narrative: problem, impact, rollout, A/B test
+|   |-- frontend-architecture.md     # Risk-driver and executive-report flows
+|   |-- demo-script.md               # 3-5 minute walkthrough + interview answers
 |   |-- architecture.png             # System architecture diagram
 |   `-- KKBox Churn Prediction Capstone Project Proposal.pdf
 |-- artifacts/
@@ -729,6 +746,7 @@ ai-customer-retention-mlops/
 |-- Dockerfile                        # Production container for FastAPI serving
 |-- requirements-serve.txt            # Minimal serving dependencies
 |-- render.yaml                       # Render.com deployment config
+|-- CHANGELOG.md
 |-- LICENSE
 `-- README.md
 ```
@@ -800,12 +818,10 @@ uvicorn src.serving.api:app --reload
 # Endpoints: GET /health  |  POST /predict  |  POST /predict_batch
 ```
 
-**Option B — Live deployment (Streamlit Community Cloud):**
+**Option B — Live deployments (no setup):**
 
-The interactive dashboard is live at: **https://amey-churn-predictor.streamlit.app/**
-
-- Single prediction, batch scoring, and ROI simulator
-- No setup required — just visit the link
+- **Decision Intelligence UI (React):** **https://churn-decision-intel-3o63.bolt.host/** for scoring with risk drivers, the policy simulator and the executive summary. To run locally: `cd frontend && npm ci && npm run dev`.
+- **Streamlit dashboard:** **https://amey-churn-predictor.streamlit.app/** for single prediction, batch scoring and the ROI simulator.
 
 **Option C — Docker (production, local):**
 
@@ -828,7 +844,12 @@ docker run -p 8000:8000 churn-api
 ```bash
 pytest src/serving/test_api.py -v
 # 16 tests: health, single predict, batch CSV, edge cases
+
+cd frontend && npm run typecheck && npm test && npm run build
+# 54 vitest tests: ROI math, scenarios, parsing, risk drivers, executive report
 ```
+
+CI (`.github/workflows/deploy.yml`) runs both suites on every push and PR to `main`.
 
 ### 14.10 Generate leaderboard
 
@@ -872,6 +893,8 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 | Docker Compose (one-command startup) | ✅ Complete (`docker-compose.yml`) |
 | Monitoring implementation | 📋 Designed (Section 11) |
 | Streamlit executive dashboard | ✅ Complete (`src/serving/app_streamlit.py`) |
+| React decision UI: indicative risk drivers, suggested actions, executive summary report | ✅ Complete (`frontend/`, 54 tests in CI) |
+| Per-customer model attributions from the API | 📋 Proposed (Section 7.5) |
 | Dockerfile + cloud deployment | ✅ Complete (`Dockerfile`, `render.yaml`, HEALTHCHECK) |
 | End-to-end pipeline orchestrator | 📋 Planned |
 
@@ -879,7 +902,7 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 
 | Priority | Item | Impact |
 |---:|---|---|
-| 1 | **Streamlit executive dashboard** — finalize interactive threshold / ROI scenario explorer for non-technical stakeholders | Bridges the gap between model output and business decision-making |
+| 1 | **Model explanations in the API** — optional `explanations` field on `/predict` and `/predict_batch` with top-N SHAP contributions (`pred_contrib=True`); the UI then shows these instead of its rule-of-thumb drivers | Operators see why the *model* flagged a customer, not an approximation |
 | 2 | **CI/CD pipeline hardening** — expand GitHub Actions workflow with automated testing and staging gates | Adds production-grade deployment automation |
 | 3 | **Automated retraining pipeline** — scheduled retrain on latest data window with MLflow-gated promotion | Closes the loop from monitoring signals to model refresh |
 | 4 | **A/B test simulation** — implement the treatment/control framework described in Section 6.5 to estimate causal uplift | Moves from predictive accuracy to true incremental business impact |
@@ -923,7 +946,7 @@ ranks = apply_topk_to_batch(probs=score_array, k=10_000)
 - Scenario modeling across intervention types: outreach vs. incentive offers
 - Business assumptions documented separately — not baked silently into model training
 - Monitoring plan with label-delay awareness and retraining triggers
-- Executive dashboard for threshold and ROI scenario exploration *(planned)*
+- Executive UI for threshold and ROI scenario exploration, with a one-click, print-ready executive summary and a suggested action per risk band ([live](https://churn-decision-intel-3o63.bolt.host/))
 
 ---
 

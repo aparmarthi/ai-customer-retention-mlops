@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    font-feature-settings: 'cv11', 'ss01';
+    line-height: 1.5;
+  }
+  h1, h2, h3, h4 {
+    line-height: 1.2;
+  }
+  :focus-visible {
+    outline: 2px solid rgb(52 211 153);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-zinc-800/80 bg-zinc-900/60 backdrop-blur-sm;
+  }
+  .input {
+    @apply w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 tabular-nums placeholder:text-zinc-600 transition-colors focus:border-emerald-500/60 focus:outline-none focus:ring-2 focus:ring-emerald-500/20;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-emerald-500 text-zinc-950 hover:bg-emerald-400 active:scale-[0.98];
+  }
+  .btn-secondary {
+    @apply btn border border-zinc-800 bg-zinc-900 text-zinc-200 hover:border-zinc-700 hover:bg-zinc-800;
+  }
+  .btn-ghost {
+    @apply btn text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100;
+  }
+  .label {
+    @apply text-xs font-medium uppercase tracking-wider text-zinc-500;
+  }
+}
+
+input[type='range'] {
+  @apply h-1.5 w-full cursor-pointer appearance-none rounded-full bg-zinc-800;
+}
+input[type='range']::-webkit-slider-thumb {
+  @apply h-4 w-4 appearance-none rounded-full border-2 border-zinc-950 bg-emerald-400 shadow transition-transform hover:scale-110;
+}
+input[type='range']::-moz-range-thumb {
+  @apply h-4 w-4 rounded-full border-2 border-zinc-950 bg-emerald-400;
+}
+
+.recharts-cartesian-grid line {
+  stroke: rgb(39 39 42);
+}
+.recharts-text {
+  font-variant-numeric: tabular-nums;
+}
+@media print {
+  @page { margin: 12mm; }
+  body:has(.print-root) #root,
+  .print-root .no-print { display: none !important; }
+  body:has(.print-root) { background: #fff !important; }
+  .print-root { position: static !important; overflow: visible !important; background: #fff !important; backdrop-filter: none !important; }
+  .print-root > div { max-width: none; padding: 0; }
+  .print-page { box-shadow: none !important; border-radius: 0 !important; }
+  .print-root * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgb(39 39 42); border-radius: 8px; border: 2px solid rgb(9 9 11); }
+::-webkit-scrollbar-track { background: transparent; }
