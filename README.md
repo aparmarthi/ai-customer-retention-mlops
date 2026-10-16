@@ -151,7 +151,7 @@ Sorted by PR-AUC — the primary metric under class imbalance:
 | # | Model | PR-AUC | PR-AUC Lift | ROC-AUC | F1 | Train Time | Notes |
 |---:|---|---:|---:|---:|---:|---:|---|
 | 1 | LightGBM | 0.8887 | **13.9x** | 0.9894 | 0.7845 | ~3 min | Baseline config, scale_pos_weight |
-| 2 | XGBoost | 0.8771 | **13.7x** | 0.9875 | — | ~2 min | Baseline XGBoost |
+| 2 | XGBoost | 0.8771 | **13.7x** | 0.9875 | 0.7180 | ~2 min | Baseline XGBoost |
 | 3 | CatBoost | 0.8737 | **13.7x** | 0.9865 | 0.7282 | ~3.7 min | GPU-accelerated, early stop |
 | 4 | FT-Transformer | 0.8214 | **12.9x** | 0.9824 | 0.6825 | ~23 min | 4-layer transformer, AMP, GPU |
 | 5 | Random Forest | 0.7935 | **12.4x** | 0.9782 | 0.5798 | ~5 min | One-hot, balanced_subsample |
